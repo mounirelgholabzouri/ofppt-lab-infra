@@ -59,8 +59,8 @@
     },
     "scheduleParameters": {
       "status": "Enabled",
-      "time": "2000",
-      "timeZoneId": "Morocco Standard Time"
+      "time": "1300",
+      "timeZoneId": "Romance Standard Time"
     }
   }
 }
