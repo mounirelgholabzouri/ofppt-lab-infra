@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!-- Cercle principal vert -->
+  <circle cx="60" cy="60" r="58" fill="#009639"/>
+  <circle cx="60" cy="60" r="52" fill="white"/>
+
+  <!-- Étoile marocaine verte à 5 branches -->
+  <g transform="translate(60,45)">
+    <polygon points="0,-20 4.7,-6.4 19,-6.4 7.7,2.4 11.8,16.2 0,8 -11.8,16.2 -7.7,2.4 -19,-6.4 -4.7,-6.4"
+             fill="#009639"/>
+  </g>
+
+  <!-- Texte OFPPT -->
+  <text x="60" y="85" font-family="Arial Black, Arial" font-weight="900" font-size="17"
+        fill="#009639" text-anchor="middle" letter-spacing="1.5">OFPPT</text>
+
+  <!-- Bordure verte externe -->
+  <circle cx="60" cy="60" r="58" fill="none" stroke="#009639" stroke-width="2"/>
+</svg>
