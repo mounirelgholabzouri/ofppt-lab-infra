@@ -1,0 +1,161 @@
+# =============================================================================
+# Vagrantfile — OFPPT-Lab Multi-VM
+# =============================================================================
+# Définit 3 VMs spécialisées pour les filières :
+#   - vm-cloud   : Environnement Cloud Computing (Azure CLI, Terraform, Docker)
+#   - vm-reseau  : Environnement Réseaux (GNS3, Wireshark, FRR)
+#   - vm-cyber   : Environnement Cybersécurité (Metasploit, Nmap, Forensics)
+# =============================================================================
+
+Vagrant.configure("2") do |config|
+
+  # ── Configuration commune à toutes les VMs ──────────────────────────────────
+  config.vm.box              = "ubuntu/jammy64"
+  config.vm.box_check_update = false
+  config.vm.boot_timeout     = 600
+
+  # Désactiver la mise à jour automatique des Guest Additions (plugin vagrant-vbguest)
+  if Vagrant.has_plugin?("vagrant-vbguest")
+    config.vbguest.auto_update = false
+  end
+
+  # Clé SSH partagée pour faciliter l'accès
+  config.ssh.insert_key = false
+
+  # ── Réseau privé commun (toutes les VMs se voient) ──────────────────────────
+  # Chaque VM aura une IP statique dans 192.168.56.0/24
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # VM 1 — Lab Cloud Computing
+  # ════════════════════════════════════════════════════════════════════════════
+  config.vm.define "vm-cloud", primary: true do |cloud|
+    cloud.vm.hostname = "ofppt-cloud"
+    cloud.vm.network "private_network", ip: "192.168.56.10"
+    cloud.vm.network "forwarded_port", guest: 8080, host: 8080,  id: "cloud-web"
+    cloud.vm.network "forwarded_port", guest: 3000, host: 3000,  id: "grafana"
+    cloud.vm.network "forwarded_port", guest: 9090, host: 9090,  id: "prometheus"
+
+    cloud.vm.provider "virtualbox" do |vb|
+      vb.name   = "OFPPT-Lab-Cloud"
+      vb.memory = 4096    # 4 Go RAM minimum pour Docker+K8s
+      vb.cpus   = 2
+      vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+      vb.customize ["modifyvm", :id, "--ioapic", "on"]
+      vb.customize ["modifyvm", :id, "--nested-hw-virt", "on"]
+    end
+
+    cloud.vm.provision "shell" do |s|
+      s.path = "../bash/provision_cloud.sh"
+      s.privileged = true
+    end
+
+    cloud.vm.post_up_message = <<~MSG
+      ✅  VM Cloud démarrée !
+          IP         : 192.168.56.10
+          SSH        : vagrant ssh vm-cloud
+          Web ports  : http://localhost:8080
+          Outils     : docker, terraform, az, kubectl, ansible
+    MSG
+  end
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # VM 2 — Lab Réseaux & Infrastructure
+  # ════════════════════════════════════════════════════════════════════════════
+  config.vm.define "vm-reseau" do |reseau|
+    reseau.vm.hostname = "ofppt-reseau"
+    reseau.vm.network "private_network", ip: "192.168.56.20"
+    reseau.vm.network "private_network", ip: "10.0.10.1",
+                      virtualbox__intnet: "ofppt-vlan10"
+    reseau.vm.network "private_network", ip: "10.0.20.1",
+                      virtualbox__intnet: "ofppt-vlan20"
+    reseau.vm.network "forwarded_port", guest: 8000, host: 8001, id: "gns3"
+
+    reseau.vm.provider "virtualbox" do |vb|
+      vb.name   = "OFPPT-Lab-Reseau"
+      vb.memory = 3072    # 3 Go RAM
+      vb.cpus   = 2
+      vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+      vb.customize ["modifyvm", :id, "--ioapic", "on"]
+      # Promiscuous mode pour capture réseau
+      vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
+      vb.customize ["modifyvm", :id, "--nicpromisc3", "allow-all"]
+    end
+
+    reseau.vm.provision "shell" do |s|
+      s.path = "../bash/provision_reseau.sh"
+      s.privileged = true
+    end
+
+    reseau.vm.post_up_message = <<~MSG
+      ✅  VM Réseau démarrée !
+          IP         : 192.168.56.20
+          SSH        : vagrant ssh vm-reseau
+          GNS3       : http://localhost:8001
+          Outils     : wireshark, nmap, tcpdump, frr, ovs, openvpn, wireguard
+    MSG
+  end
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # VM 3 — Lab Cybersécurité
+  # ════════════════════════════════════════════════════════════════════════════
+  config.vm.define "vm-cyber" do |cyber|
+    cyber.vm.hostname = "ofppt-cyber"
+    cyber.vm.network "private_network", ip: "192.168.56.30"
+    cyber.vm.network "forwarded_port", guest: 80,   host: 8888, id: "dvwa"
+    cyber.vm.network "forwarded_port", guest: 4444, host: 4444, id: "msf-handler"
+    cyber.vm.network "forwarded_port", guest: 8443, host: 8443, id: "msf-ssl"
+
+    cyber.vm.provider "virtualbox" do |vb|
+      vb.name   = "OFPPT-Lab-Cyber"
+      vb.memory = 4096    # 4 Go RAM pour Metasploit
+      vb.cpus   = 2
+      vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+      vb.customize ["modifyvm", :id, "--ioapic", "on"]
+    end
+
+    cyber.vm.provision "shell" do |s|
+      s.path = "../bash/provision_cyber.sh"
+      s.privileged = true
+    end
+
+    cyber.vm.post_up_message = <<~MSG
+      ✅  VM Cybersécurité démarrée !
+          IP         : 192.168.56.30
+          SSH        : vagrant ssh vm-cyber
+          DVWA       : http://localhost:8888/dvwa (admin/password)
+          Outils     : metasploit, nmap, sqlmap, hydra, john, volatility
+          ⚠  Usage UNIQUEMENT sur ce lab isolé !
+    MSG
+  end
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # VM 4 — Cible vulnérable (Metasploitable2-like) [optionnelle]
+  # ════════════════════════════════════════════════════════════════════════════
+  config.vm.define "vm-target", autostart: false do |target|
+    target.vm.box      = "rapid7/metasploitable3-ub1404"
+    target.vm.hostname = "ofppt-target"
+    target.vm.network "private_network", ip: "192.168.56.100"
+
+    target.vm.provider "virtualbox" do |vb|
+      vb.name   = "OFPPT-Lab-Target"
+      vb.memory = 1024
+      vb.cpus   = 1
+    end
+
+    target.vm.post_up_message = <<~MSG
+      ⚠   VM Cible vulnérable démarrée !
+          IP  : 192.168.56.100
+          ⚠  Ne PAS exposer sur réseau public !
+    MSG
+  end
+
+end
+# =============================================================================
+# Commandes utiles :
+#   vagrant up                    # Démarrer toutes les VMs (sauf vm-target)
+#   vagrant up vm-cloud           # Démarrer une VM spécifique
+#   vagrant ssh vm-cyber          # Se connecter en SSH
+#   vagrant halt                  # Arrêter toutes les VMs
+#   vagrant destroy -f            # Supprimer toutes les VMs
+#   vagrant status                # Voir l'état des VMs
+# =============================================================================
