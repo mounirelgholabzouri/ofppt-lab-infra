@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Azure/azure-devtestlab/master/schemas/2016-11-28/dtlArtifacts.json",
+  "title": "OFPPT Cybersécurité Tools",
+  "description": "Installe les outils de TP Cybersécurité : Metasploit, Nmap/Masscan, Burp Suite Community, sqlmap, Hydra, hashcat, Volatility, DVWA",
+  "iconUri": "https://portal.azure.com/favicon.ico",
+  "targetOsType": "Linux",
+  "parameters": {
+    "installDvwa": {
+      "type": "bool",
+      "displayName": "Installer DVWA",
+      "defaultValue": true,
+      "description": "Installer DVWA (Damn Vulnerable Web Application) pour les exercices Web"
+    },
+    "installMetasploit": {
+      "type": "bool",
+      "displayName": "Installer Metasploit",
+      "defaultValue": true,
+      "description": "Installer Metasploit Framework (nécessite des permissions spéciales)"
+    }
+  },
+  "runCommand": {
+    "commandToExecute": "[concat('bash install.sh ', string(parameters('installDvwa')), ' ', string(parameters('installMetasploit')))]"
+  }
+}

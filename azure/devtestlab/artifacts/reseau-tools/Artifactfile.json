@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Azure/azure-devtestlab/master/schemas/2016-11-28/dtlArtifacts.json",
+  "title": "OFPPT Réseau & Infrastructure Tools",
+  "description": "Installe les outils de TP Réseau : Wireshark, tcpdump, Nmap, iperf3, FRRouting (OSPF/BGP/RIP), OpenVPN, WireGuard, Open vSwitch, GNS3",
+  "iconUri": "https://portal.azure.com/favicon.ico",
+  "targetOsType": "Linux",
+  "parameters": {
+    "installGns3": {
+      "type": "bool",
+      "displayName": "Installer GNS3",
+      "defaultValue": false,
+      "description": "Installer GNS3 (émulateur réseau) — nécessite plus de ressources"
+    }
+  },
+  "runCommand": {
+    "commandToExecute": "[concat('bash install.sh ', string(parameters('installGns3')))]"
+  }
+}

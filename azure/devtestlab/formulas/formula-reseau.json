@@ -1,0 +1,52 @@
+{
+  "name": "OFPPT-Reseau-Infrastructure",
+  "description": "VM filière Réseau & Infrastructure — Wireshark, FRRouting (OSPF/BGP/RIP), OpenVPN, WireGuard, Open vSwitch, iptables, DHCP/DNS",
+  "notes": "Taille recommandée : Standard_D2s_v3 (2 vCPU / 8 GB RAM)\nOS : Ubuntu Server 22.04 LTS\nDisque : 128 GB Premium SSD\n\nOutils installés via artefact 'reseau-tools' :\n- Wireshark + tcpdump + tshark\n- Nmap, Masscan, netdiscover, iperf3, mtr\n- FRRouting (OSPF, BGP, RIP, IS-IS)\n- OpenVPN + Easy-RSA\n- WireGuard\n- Open vSwitch\n- iptables + nftables\n- isc-dhcp-server, BIND9, dnsmasq",
+  "labVirtualMachineCreationParameter": {
+    "size": "Standard_D2s_v3",
+    "labSubnetName": "Subnet",
+    "disallowPublicIpAddress": false,
+    "storageType": "Premium",
+    "osDiskSizeGiB": 128,
+    "isAuthenticationWithSshKey": true,
+    "galleryImageReference": {
+      "offer":     "0001-com-ubuntu-server-jammy",
+      "publisher": "Canonical",
+      "sku":       "22_04-lts-gen2",
+      "osType":    "Linux",
+      "version":   "latest"
+    },
+    "artifacts": [
+      {
+        "artifactTitle": "OFPPT Réseau Tools",
+        "parameters": [
+          {
+            "name":  "installGns3",
+            "value": "false"
+          }
+        ]
+      }
+    ],
+    "networkInterface": {
+      "sharedPublicIpAddressConfiguration": {
+        "inboundNatRules": [
+          {
+            "transportProtocol": "Tcp",
+            "backendPort": 22,
+            "frontendPort": 22
+          },
+          {
+            "transportProtocol": "Tcp",
+            "backendPort": 8001,
+            "frontendPort": 8001
+          }
+        ]
+      }
+    },
+    "scheduleParameters": {
+      "status": "Enabled",
+      "time": "2000",
+      "timeZoneId": "Morocco Standard Time"
+    }
+  }
+}

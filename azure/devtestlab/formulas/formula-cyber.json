@@ -1,0 +1,66 @@
+{
+  "name": "OFPPT-Cybersecurite",
+  "description": "VM filière Cybersécurité — Metasploit, Nmap/Masscan, Burp Suite Community, sqlmap, Hydra, hashcat, Volatility 3, DVWA",
+  "notes": "Taille recommandée : Standard_D4s_v3 (4 vCPU / 16 GB RAM)\nOS : Ubuntu Server 22.04 LTS\nDisque : 128 GB Premium SSD\n\nOutils installés via artefact 'cyber-tools' :\n- Reconnaissance : Nmap, Masscan, Nikto, Gobuster, Dirb, theHarvester, dnsrecon\n- Exploitation Web : sqlmap, OWASP ZAP\n- Password cracking : Hydra, Medusa, John, hashcat + rockyou\n- Metasploit Framework\n- Forensique : Volatility 3, binwalk, foremost, exiftool\n- DVWA (Damn Vulnerable Web Application)\n\n⚠ AVERTISSEMENT : Ces outils sont à usage pédagogique uniquement.\nToute utilisation non autorisée est illégale.",
+  "labVirtualMachineCreationParameter": {
+    "size": "Standard_D4s_v3",
+    "labSubnetName": "Subnet",
+    "disallowPublicIpAddress": false,
+    "storageType": "Premium",
+    "osDiskSizeGiB": 128,
+    "isAuthenticationWithSshKey": true,
+    "galleryImageReference": {
+      "offer":     "0001-com-ubuntu-server-jammy",
+      "publisher": "Canonical",
+      "sku":       "22_04-lts-gen2",
+      "osType":    "Linux",
+      "version":   "latest"
+    },
+    "artifacts": [
+      {
+        "artifactTitle": "OFPPT Cyber Tools",
+        "parameters": [
+          {
+            "name":  "installDvwa",
+            "value": "true"
+          },
+          {
+            "name":  "installMetasploit",
+            "value": "true"
+          }
+        ]
+      }
+    ],
+    "networkInterface": {
+      "sharedPublicIpAddressConfiguration": {
+        "inboundNatRules": [
+          {
+            "transportProtocol": "Tcp",
+            "backendPort": 22,
+            "frontendPort": 22
+          },
+          {
+            "transportProtocol": "Tcp",
+            "backendPort": 8888,
+            "frontendPort": 8888
+          },
+          {
+            "transportProtocol": "Tcp",
+            "backendPort": 4444,
+            "frontendPort": 4444
+          },
+          {
+            "transportProtocol": "Tcp",
+            "backendPort": 8090,
+            "frontendPort": 8090
+          }
+        ]
+      }
+    },
+    "scheduleParameters": {
+      "status": "Enabled",
+      "time": "2000",
+      "timeZoneId": "Morocco Standard Time"
+    }
+  }
+}

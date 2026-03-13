@@ -1,0 +1,66 @@
+{
+  "name": "OFPPT-Cloud-Computing",
+  "description": "VM filière Cloud Computing — Docker CE, Terraform 1.7, kubectl, minikube, Azure CLI, AWS CLI v2, Ansible, Helm",
+  "notes": "Taille recommandée : Standard_D4s_v3 (4 vCPU / 16 GB RAM)\nOS : Ubuntu Server 22.04 LTS\nDisque : 128 GB Premium SSD\n\nOutils installés via artefact 'cloud-tools' :\n- Docker CE + Docker Compose\n- Terraform 1.7.0\n- kubectl (stable)\n- minikube\n- Azure CLI\n- AWS CLI v2\n- Ansible\n- Helm",
+  "labVirtualMachineCreationParameter": {
+    "size": "Standard_D4s_v3",
+    "labSubnetName": "Subnet",
+    "disallowPublicIpAddress": false,
+    "storageType": "Premium",
+    "osDiskSizeGiB": 128,
+    "isAuthenticationWithSshKey": true,
+    "galleryImageReference": {
+      "offer":     "0001-com-ubuntu-server-jammy",
+      "publisher": "Canonical",
+      "sku":       "22_04-lts-gen2",
+      "osType":    "Linux",
+      "version":   "latest"
+    },
+    "artifacts": [
+      {
+        "artifactTitle": "OFPPT Cloud Tools",
+        "parameters": [
+          {
+            "name":  "dockerVersion",
+            "value": "2.24.0"
+          },
+          {
+            "name":  "terraformVersion",
+            "value": "1.7.0"
+          }
+        ]
+      }
+    ],
+    "networkInterface": {
+      "sharedPublicIpAddressConfiguration": {
+        "inboundNatRules": [
+          {
+            "transportProtocol": "Tcp",
+            "backendPort": 22,
+            "frontendPort": 22
+          },
+          {
+            "transportProtocol": "Tcp",
+            "backendPort": 8080,
+            "frontendPort": 8080
+          },
+          {
+            "transportProtocol": "Tcp",
+            "backendPort": 3000,
+            "frontendPort": 3000
+          },
+          {
+            "transportProtocol": "Tcp",
+            "backendPort": 9090,
+            "frontendPort": 9090
+          }
+        ]
+      }
+    },
+    "scheduleParameters": {
+      "status": "Enabled",
+      "time": "2000",
+      "timeZoneId": "Morocco Standard Time"
+    }
+  }
+}

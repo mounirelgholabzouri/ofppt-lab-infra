@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Azure/azure-devtestlab/master/schemas/2016-11-28/dtlArtifacts.json",
+  "title": "OFPPT Cloud Computing Tools",
+  "description": "Installe les outils de TP Cloud Computing : Docker CE, Docker Compose, Terraform 1.7, kubectl, minikube, Azure CLI, AWS CLI v2, Ansible",
+  "iconUri": "https://portal.azure.com/favicon.ico",
+  "targetOsType": "Linux",
+  "parameters": {
+    "dockerVersion": {
+      "type": "string",
+      "displayName": "Version Docker Compose",
+      "defaultValue": "2.24.0",
+      "description": "Version de Docker Compose à installer"
+    },
+    "terraformVersion": {
+      "type": "string",
+      "displayName": "Version Terraform",
+      "defaultValue": "1.7.0",
+      "description": "Version de Terraform à installer"
+    }
+  },
+  "runCommand": {
+    "commandToExecute": "[concat('bash install.sh ', parameters('dockerVersion'), ' ', parameters('terraformVersion'))]"
+  }
+}
