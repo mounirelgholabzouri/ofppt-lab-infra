@@ -2,17 +2,22 @@
 // =============================================================================
 // azure_dtl_api.php — Client PHP pour l'API REST Azure DevTest Labs
 // =============================================================================
+// Aligné sur create_vm_with_nsg.ps1 :
+//   - Image Ubuntu 22.04 directe (quota D2s_v3 validé)
+//   - IP publique dédiée par VM (disallowPublicIpAddress = false)
+//   - NSG auto (SSH:22 + ttyd:7681 + HTTP:80) créé et attaché à la NIC
+// =============================================================================
 
 require_once __DIR__ . '/config.php';
 
 class AzureDTLApi {
 
-    private string $token = '';
+    private string $token       = '';
     private string $tokenExpiry = '';
     private string $subscriptionId;
     private string $resourceGroup;
     private string $labName;
-    private string $apiVersion = '2018-09-15';
+    private string $apiVersion  = '2018-09-15';
 
     public function __construct() {
         $this->subscriptionId = AZURE_SUBSCRIPTION_ID;
@@ -40,7 +45,7 @@ class AzureDTLApi {
         }
 
         $this->token       = $response['access_token'];
-        $this->tokenExpiry = date('Y-m-d H:i:s', time() + $response['expires_in'] - 60);
+        $this->tokenExpiry = date('Y-m-d H:i:s', time() + ($response['expires_in'] ?? 3600) - 60);
         return $this->token;
     }
 
@@ -65,7 +70,7 @@ class AzureDTLApi {
             CURLOPT_SSL_VERIFYPEER => true,
         ]);
 
-        if ($body) {
+        if ($body !== null) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, is_array($body) ? json_encode($body) : $body);
         }
 
@@ -73,9 +78,9 @@ class AzureDTLApi {
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        $decoded = json_decode($result, true) ?? [];
+        $decoded = json_decode($result ?: '{}', true) ?? [];
         if ($httpCode >= 400) {
-            $msg = $decoded['error']['message'] ?? $result;
+            $msg = $decoded['error']['message'] ?? ($result ?: "HTTP $httpCode");
             dtl_log("ERREUR API Azure [$httpCode] $method $url : $msg", 'ERROR');
         }
 
@@ -91,7 +96,20 @@ class AzureDTLApi {
              . "?api-version={$this->apiVersion}";
     }
 
-    // ── Créer une VM dans le lab ──────────────────────────────────────────────
+    // ── Récupérer le VNet du lab DTL ─────────────────────────────────────────
+    private function getDtlVnet(): string {
+        $url    = $this->labUrl('virtualnetworks');
+        $result = $this->curl('GET', $url);
+        $vnetId = $result['value'][0]['id'] ?? '';
+        if (!$vnetId) {
+            dtl_log("VNet DTL introuvable — vérifiez que setup_vnet.ps1 a été exécuté", 'WARN');
+        }
+        return $vnetId;
+    }
+
+    // ── Créer une VM dans le lab (approche directe, IP publique dédiée) ───────
+    // Aligné sur create_vm_with_nsg.ps1 : Ubuntu 22.04 + disallowPublicIpAddress=false
+    // La VM reçoit son propre NSG (SSH:22 + ttyd:7681 + HTTP:80) après provisionnement.
     public function createVm(string $vmName, string $tpCode, string $username): array {
         $this->getToken();
 
@@ -100,55 +118,71 @@ class AzureDTLApi {
             throw new InvalidArgumentException("TP inconnu : $tpCode");
         }
 
-        $filiere    = $tp['filiere'];
-        $formula    = DTL_FORMULAS[$filiere] ?? null;
-        if (!$formula) {
-            throw new RuntimeException("Formule introuvable pour la filière : $filiere");
+        // VNet du lab
+        $vnetId = $this->getDtlVnet();
+        if (!$vnetId) {
+            throw new RuntimeException("VNet DTL introuvable — impossible de créer la VM");
         }
 
-        $formulaId = "/subscriptions/{$this->subscriptionId}"
-                   . "/resourceGroups/{$this->resourceGroup}"
-                   . "/providers/Microsoft.DevTestLab/labs/{$this->labName}"
-                   . "/formulas/$formula";
-
-        // Mot de passe SSH unique par stagiaire (déterministe mais fort)
+        // Mot de passe unique par stagiaire (déterministe, format: TP@XXXXXXXX2024!)
         $vmPassword = 'TP@' . strtoupper(substr(md5($username . TP_SECRET_KEY), 0, 8)) . '2024!';
 
         $payload = [
-            'location'   => DTL_LOCATION,
+            'name'     => $vmName,
+            'location' => DTL_LOCATION,
+            'tags'     => [
+                'Stagiaire' => $username,
+                'TP'        => $tpCode,
+                'Filiere'   => $tp['filiere'],
+                'Ephemere'  => 'true',
+                'Source'    => 'moodle-launch-tp',
+            ],
             'properties' => [
-                'formulaId'    => $formulaId,
-                'userName'     => DTL_ADMIN_USER,
-                'password'     => $vmPassword,
-                'size'         => $tp['vm_size'],
-                'storageType'  => 'Premium',
-                'notes'        => "TP: $tpCode | Stagiaire: $username | Créée: " . date('d/m/Y H:i'),
-                'tags'         => [
-                    'Stagiaire' => $username,
-                    'TP'        => $tpCode,
-                    'Filiere'   => $filiere,
-                    'Ephemere'  => 'true',
+                'size'                       => $tp['vm_size'],
+                'userName'                   => DTL_ADMIN_USER,
+                'password'                   => $vmPassword,
+                'isAuthenticationWithSshKey' => false,
+                'allowClaim'                 => false,
+                'disallowPublicIpAddress'    => false,   // IP publique dédiée
+                'storageType'                => 'Standard',
+                'labVirtualNetworkId'        => $vnetId,
+                'labSubnetName'              => 'subnet-ofppt-dtl',
+                'galleryImageReference'      => [
+                    'offer'     => 'ubuntu-22_04-lts',
+                    'publisher' => 'Canonical',
+                    'sku'       => 'server-gen1',
+                    'osType'    => 'Linux',
+                    'version'   => 'latest',
                 ],
+                'notes' => "TP: $tpCode | Stagiaire: $username | Créée: " . date('d/m/Y H:i'),
             ],
         ];
 
-        dtl_log("Création VM '$vmName' pour '$username' (TP: $tpCode, formule: $formula)");
-        $url = $this->labUrl("virtualmachines/$vmName");
-        return $this->curl('PUT', $url, $payload);
+        dtl_log("Création VM '$vmName' pour '$username' (TP: $tpCode, taille: {$tp['vm_size']})");
+        $url    = $this->labUrl("virtualmachines/$vmName");
+        $result = $this->curl('PUT', $url, $payload);
+
+        if (!empty($result['error'])) {
+            $errMsg = $result['error']['message'] ?? json_encode($result['error']);
+            throw new RuntimeException("Erreur création VM : $errMsg");
+        }
+
+        return $result;
     }
 
     // ── Récupérer l'état d'une VM ─────────────────────────────────────────────
+    // Déclenche ensureNsg() automatiquement dès que la VM est Succeeded.
     public function getVmStatus(string $vmName): array {
         $this->getToken();
         $url    = $this->labUrl("virtualmachines/$vmName");
         $result = $this->curl('GET', $url);
 
-        $state        = $result['properties']['lastKnownPowerState'] ?? 'Unknown';
-        $provState    = $result['properties']['provisioningState']   ?? 'Unknown';
-        $fqdn         = $result['properties']['fqdn']                ?? '';
-        $computeId    = $result['properties']['computeId']           ?? '';
+        $powerState  = $result['properties']['lastKnownPowerState'] ?? 'Unknown';
+        $provState   = $result['properties']['provisioningState']   ?? 'Unknown';
+        $fqdn        = $result['properties']['fqdn']                ?? '';
+        $computeId   = $result['properties']['computeId']           ?? '';
 
-        // Récupérer l'IP publique si disponible
+        // Récupérer l'IP publique
         $publicIp = '';
         if ($fqdn) {
             $publicIp = $fqdn;
@@ -156,17 +190,26 @@ class AzureDTLApi {
             $publicIp = $this->getVmPublicIp($computeId);
         }
 
+        // Dès que la VM est Succeeded, s'assurer que le NSG est en place
+        if ($provState === 'Succeeded' && !empty($publicIp)) {
+            try {
+                $this->ensureNsg($vmName);
+            } catch (Exception $e) {
+                dtl_log("ensureNsg '$vmName' : " . $e->getMessage(), 'WARN');
+            }
+        }
+
         return [
-            'name'             => $vmName,
-            'powerState'       => $state,
-            'provisioningState'=> $provState,
-            'ip'               => $publicIp,
-            'fqdn'             => $fqdn,
-            'ready'            => ($state === 'Running' && $provState === 'Succeeded'),
+            'name'              => $vmName,
+            'powerState'        => $powerState,
+            'provisioningState' => $provState,
+            'ip'                => $publicIp,
+            'fqdn'              => $fqdn,
+            'ready'             => ($powerState === 'Running' && $provState === 'Succeeded'),
         ];
     }
 
-    // ── Récupérer l'IP publique depuis l'ID de la VM Compute ─────────────────
+    // ── Récupérer l'IP publique depuis l'ID compute ───────────────────────────
     private function getVmPublicIp(string $computeId): string {
         $this->getToken();
         try {
@@ -175,16 +218,126 @@ class AzureDTLApi {
             $nicId  = $result['properties']['networkProfile']['networkInterfaces'][0]['id'] ?? '';
             if (!$nicId) return '';
 
-            $nic    = $this->curl('GET', "https://management.azure.com{$nicId}?api-version=2023-04-01");
-            $pipId  = $nic['properties']['ipConfigurations'][0]['properties']['publicIPAddress']['id'] ?? '';
+            $nic   = $this->curl('GET', "https://management.azure.com{$nicId}?api-version=2023-04-01");
+            $pipId = $nic['properties']['ipConfigurations'][0]['properties']['publicIPAddress']['id'] ?? '';
             if (!$pipId) return '';
 
-            $pip    = $this->curl('GET', "https://management.azure.com{$pipId}?api-version=2023-04-01");
+            $pip = $this->curl('GET', "https://management.azure.com{$pipId}?api-version=2023-04-01");
             return $pip['properties']['ipAddress'] ?? '';
         } catch (Exception $e) {
-            dtl_log("Impossible de récupérer l'IP : " . $e->getMessage(), 'WARN');
+            dtl_log("getVmPublicIp '$computeId' : " . $e->getMessage(), 'WARN');
             return '';
         }
+    }
+
+    // ── Trouver le RG compute d'une VM par nom ────────────────────────────────
+    // Les VMs DTL ont leur propre RG compute nommé d'après le nom de la VM.
+    private function findComputeRg(string $vmName): string {
+        $url    = "https://management.azure.com/subscriptions/{$this->subscriptionId}/resourcegroups?api-version=2021-04-01";
+        $result = $this->curl('GET', $url);
+        foreach ($result['value'] ?? [] as $rg) {
+            if (stripos($rg['name'], $vmName) !== false) {
+                return $rg['name'];
+            }
+        }
+        return '';
+    }
+
+    // ── Créer NSG (SSH:22 + ttyd:7681 + HTTP:80) et l'attacher à la NIC ──────
+    // Idempotent : ne fait rien si le NSG existe déjà.
+    public function ensureNsg(string $vmName): bool {
+        $this->getToken();
+
+        $computeRg = $this->findComputeRg($vmName);
+        if (!$computeRg) {
+            dtl_log("ensureNsg: RG compute non trouvé pour '$vmName'", 'WARN');
+            return false;
+        }
+
+        $nsgName = "nsg-$vmName";
+        $nsgUrl  = "https://management.azure.com/subscriptions/{$this->subscriptionId}"
+                 . "/resourceGroups/$computeRg/providers/Microsoft.Network/networkSecurityGroups/$nsgName"
+                 . "?api-version=2023-09-01";
+
+        // Vérifier si NSG existe déjà
+        $existing = $this->curl('GET', $nsgUrl);
+        if (!empty($existing['id'])) {
+            return true; // Déjà en place
+        }
+
+        // Créer NSG avec les règles nécessaires
+        $nsgPayload = [
+            'location'   => DTL_LOCATION,
+            'properties' => [
+                'securityRules' => [
+                    [
+                        'name'       => 'Allow-SSH',
+                        'properties' => [
+                            'priority'                 => 100,
+                            'protocol'                 => 'Tcp',
+                            'access'                   => 'Allow',
+                            'direction'                => 'Inbound',
+                            'sourceAddressPrefix'      => '*',
+                            'sourcePortRange'          => '*',
+                            'destinationAddressPrefix' => '*',
+                            'destinationPortRange'     => '22',
+                        ],
+                    ],
+                    [
+                        'name'       => 'Allow-ttyd',
+                        'properties' => [
+                            'priority'                 => 110,
+                            'protocol'                 => 'Tcp',
+                            'access'                   => 'Allow',
+                            'direction'                => 'Inbound',
+                            'sourceAddressPrefix'      => '*',
+                            'sourcePortRange'          => '*',
+                            'destinationAddressPrefix' => '*',
+                            'destinationPortRange'     => (string)TTYD_PORT,
+                        ],
+                    ],
+                    [
+                        'name'       => 'Allow-HTTP',
+                        'properties' => [
+                            'priority'                 => 120,
+                            'protocol'                 => 'Tcp',
+                            'access'                   => 'Allow',
+                            'direction'                => 'Inbound',
+                            'sourceAddressPrefix'      => '*',
+                            'sourcePortRange'          => '*',
+                            'destinationAddressPrefix' => '*',
+                            'destinationPortRange'     => '80',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $nsgResult = $this->curl('PUT', $nsgUrl, $nsgPayload);
+        $nsgId     = $nsgResult['id'] ?? '';
+
+        if (!$nsgId) {
+            dtl_log("ensureNsg: échec création NSG '$nsgName' pour '$vmName'", 'WARN');
+            return false;
+        }
+
+        // Attacher le NSG à la NIC de la VM
+        $nicUrl = "https://management.azure.com/subscriptions/{$this->subscriptionId}"
+                . "/resourceGroups/$computeRg/providers/Microsoft.Network/networkInterfaces/$vmName"
+                . "?api-version=2023-09-01";
+        $nic = $this->curl('GET', $nicUrl);
+
+        if (empty($nic['id'])) {
+            dtl_log("ensureNsg: NIC '$vmName' non trouvée dans '$computeRg'", 'WARN');
+            return false;
+        }
+
+        // Mettre à jour la NIC avec le NSG
+        $nic['properties']['networkSecurityGroup'] = ['id' => $nsgId];
+        $this->curl('PUT', $nicUrl, $nic);
+
+        dtl_log("NSG '$nsgName' créé et attaché à la NIC de '$vmName' (RG: $computeRg)");
+        return true;
     }
 
     // ── Démarrer une VM existante ─────────────────────────────────────────────
@@ -230,22 +383,21 @@ class AzureDTLApi {
         return $result['value'] ?? [];
     }
 
-    // ── Générer le nom de VM pour un stagiaire + TP ────────────────────────────
+    // ── Générer le nom de VM (max 15 car., alphanumérique + tiret) ────────────
     public static function buildVmName(string $username, string $tpCode): string {
-        // Nom Azure DTL : max 15 caractères, alphanumérique + tiret
-        $clean   = preg_replace('/[^a-z0-9]/', '', strtolower($username));
-        $tp      = strtolower(str_replace(['-', '_'], '', $tpCode));
-        $name    = 'vm-' . substr($clean, 0, 5) . '-' . substr($tp, 0, 7);
+        $clean = preg_replace('/[^a-z0-9]/', '', strtolower($username));
+        $tp    = strtolower(str_replace(['-', '_'], '', $tpCode));
+        $name  = 'vm-' . substr($clean, 0, 5) . '-' . substr($tp, 0, 7);
         return substr($name, 0, 15);
     }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers globaux ────────────────────────────────────────────────────────────
 function dtl_log(string $message, string $level = 'INFO'): void {
     if (defined('LOG_LEVEL') && LOG_LEVEL === 'ERROR' && $level !== 'ERROR') return;
     $line = sprintf("[%s][%s] %s\n", date('Y-m-d H:i:s'), $level, $message);
-    if (defined('LOG_FILE')) {
-        file_put_contents(LOG_FILE, $line, FILE_APPEND | LOCK_EX);
+    if (defined('LOG_FILE') && LOG_FILE) {
+        @file_put_contents(LOG_FILE, $line, FILE_APPEND | LOCK_EX);
     }
     if (defined('WP_DEBUG') && WP_DEBUG) error_log($line);
 }

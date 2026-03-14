@@ -61,19 +61,19 @@ define('LOG_LEVEL', 'INFO'); // DEBUG, INFO, WARN, ERROR
 // ── Mapping TP → Filière ──────────────────────────────────────────────────────
 // Associe chaque code TP à sa filière et à la formule DTL correspondante
 define('TP_CATALOG', [
-    // Cloud Computing
-    'CC101-TP1' => ['filiere' => 'cloud',  'label' => 'Docker — Premiers conteneurs',          'vm_size' => 'Standard_D4s_v3'],
-    'CC101-TP2' => ['filiere' => 'cloud',  'label' => 'Docker Compose — Application multi-conteneurs', 'vm_size' => 'Standard_D4s_v3'],
-    'CC302-TP1' => ['filiere' => 'cloud',  'label' => 'Kubernetes — Déploiement de pods',      'vm_size' => 'Standard_D4s_v3'],
-    'CC302-TP2' => ['filiere' => 'cloud',  'label' => 'Terraform — Infrastructure as Code',   'vm_size' => 'Standard_D4s_v3'],
+    // Cloud Computing — D2s_v3 validé (2 vCPU / 8 GB RAM, quota francecentral OK)
+    'CC101-TP1' => ['filiere' => 'cloud',  'label' => 'Docker — Premiers conteneurs',          'vm_size' => 'Standard_D2s_v3'],
+    'CC101-TP2' => ['filiere' => 'cloud',  'label' => 'Docker Compose — Application multi-conteneurs', 'vm_size' => 'Standard_D2s_v3'],
+    'CC302-TP1' => ['filiere' => 'cloud',  'label' => 'Kubernetes — Déploiement de pods',      'vm_size' => 'Standard_D2s_v3'],
+    'CC302-TP2' => ['filiere' => 'cloud',  'label' => 'Terraform — Infrastructure as Code',   'vm_size' => 'Standard_D2s_v3'],
     // Réseau & Infrastructure
     'NET101-TP1'=> ['filiere' => 'reseau', 'label' => 'Wireshark — Analyse de trames',        'vm_size' => 'Standard_D2s_v3'],
     'NET101-TP2'=> ['filiere' => 'reseau', 'label' => 'OSPF — Configuration du routage dynamique', 'vm_size' => 'Standard_D2s_v3'],
     'NET201-TP1'=> ['filiere' => 'reseau', 'label' => 'VPN OpenVPN — Tunnel sécurisé',        'vm_size' => 'Standard_D2s_v3'],
     'NET301-TP1'=> ['filiere' => 'reseau', 'label' => 'WireGuard — VPN moderne',              'vm_size' => 'Standard_D2s_v3'],
     // Cybersécurité
-    'CYB101-TP1'=> ['filiere' => 'cyber',  'label' => 'Nmap — Reconnaissance réseau',          'vm_size' => 'Standard_D4s_v3'],
-    'CYB101-TP2'=> ['filiere' => 'cyber',  'label' => 'Metasploit — Exploitation de base',     'vm_size' => 'Standard_D4s_v3'],
-    'CYB201-TP1'=> ['filiere' => 'cyber',  'label' => 'DVWA — Tests d\'injection SQL',         'vm_size' => 'Standard_D4s_v3'],
-    'CYB301-TP1'=> ['filiere' => 'cyber',  'label' => 'Volatility — Analyse forensique',       'vm_size' => 'Standard_D4s_v3'],
+    'CYB101-TP1'=> ['filiere' => 'cyber',  'label' => 'Nmap — Reconnaissance réseau',          'vm_size' => 'Standard_D2s_v3'],
+    'CYB101-TP2'=> ['filiere' => 'cyber',  'label' => 'Metasploit — Exploitation de base',     'vm_size' => 'Standard_D2s_v3'],
+    'CYB201-TP1'=> ['filiere' => 'cyber',  'label' => 'DVWA — Tests d\'injection SQL',         'vm_size' => 'Standard_D2s_v3'],
+    'CYB301-TP1'=> ['filiere' => 'cyber',  'label' => 'Volatility — Analyse forensique',       'vm_size' => 'Standard_D2s_v3'],
 ]);
