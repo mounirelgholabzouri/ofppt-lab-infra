@@ -32,12 +32,14 @@ class AzureDTLApi {
         }
 
         $url  = "https://login.microsoftonline.com/" . AZURE_TENANT_ID . "/oauth2/v2.0/token";
+        // '&' separator must be explicit: Moodle sets ini arg_separator.output='&amp;'
+        // which would corrupt the POST body and cause AADSTS7000216 (client_secret missing)
         $body = http_build_query([
             'grant_type'    => 'client_credentials',
             'client_id'     => AZURE_CLIENT_ID,
             'client_secret' => AZURE_CLIENT_SECRET,
             'scope'         => 'https://management.azure.com/.default',
-        ]);
+        ], '', '&');
 
         $response = $this->curl('POST', $url, $body, ['Content-Type: application/x-www-form-urlencoded']);
         if (empty($response['access_token'])) {
