@@ -52,10 +52,14 @@ class AzureDTLApi {
     // ── Appel générique à l'API Azure REST ───────────────────────────────────
     private function curl(string $method, string $url, mixed $body = null, array $extraHeaders = []): array {
         $ch = curl_init();
-        $headers = array_merge([
-            'Accept: application/json',
-            'Content-Type: application/json',
-        ], $extraHeaders);
+
+        // N'ajouter Content-Type: application/json que si aucun Content-Type dans extraHeaders
+        $hasContentType = (bool) array_filter($extraHeaders, fn($h) => stripos($h, 'Content-Type:') === 0);
+        $headers = array_merge(
+            ['Accept: application/json'],
+            $hasContentType ? [] : ['Content-Type: application/json'],
+            $extraHeaders
+        );
 
         if ($this->token) {
             $headers[] = 'Authorization: Bearer ' . $this->token;
@@ -68,6 +72,7 @@ class AzureDTLApi {
             CURLOPT_HTTPHEADER     => $headers,
             CURLOPT_TIMEOUT        => 30,
             CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_FOLLOWLOCATION => true,
         ]);
 
         if ($body !== null) {
@@ -76,7 +81,13 @@ class AzureDTLApi {
 
         $result   = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr  = curl_error($ch);
         curl_close($ch);
+
+        if ($curlErr) {
+            dtl_log("cURL error [$method $url] : $curlErr", 'ERROR');
+            throw new RuntimeException("Erreur réseau curl : $curlErr");
+        }
 
         $decoded = json_decode($result ?: '{}', true) ?? [];
         if ($httpCode >= 400) {
