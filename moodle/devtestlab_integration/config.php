@@ -11,10 +11,10 @@
 // =============================================================================
 
 // ── Azure Service Principal ──────────────────────────────────────────────────
-define('AZURE_TENANT_ID',       getenv('AZURE_TENANT_ID')       ?: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx');
-define('AZURE_CLIENT_ID',       getenv('AZURE_CLIENT_ID')       ?: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx');
-define('AZURE_CLIENT_SECRET',   getenv('AZURE_CLIENT_SECRET')   ?: 'votre-secret-ici');
-define('AZURE_SUBSCRIPTION_ID', getenv('AZURE_SUBSCRIPTION_ID') ?: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx');
+define('AZURE_TENANT_ID',       getenv('AZURE_TENANT_ID')       ?: '687d3cdf-7038-4560-a9f5-b3f0403eb863');
+define('AZURE_CLIENT_ID',       getenv('AZURE_CLIENT_ID')       ?: 'ae328530-c971-44a9-98dc-443f0618b4fc');
+define('AZURE_CLIENT_SECRET',   getenv('AZURE_CLIENT_SECRET')   ?: '');  // Définir via variable d'environnement ou .env.local (jamais en dur ici)
+define('AZURE_SUBSCRIPTION_ID', getenv('AZURE_SUBSCRIPTION_ID') ?: 'b64ddf59-d9cf-4c48-8174-27962dfc261c');
 
 // ── Azure DevTest Labs ────────────────────────────────────────────────────────
 define('DTL_RESOURCE_GROUP', 'rg-ofppt-devtestlab');

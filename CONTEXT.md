@@ -1,5 +1,5 @@
 # CONTEXT.md — OFPPT-Lab Infrastructure
-> Généré le 2026-03-14 | Branche : `feature/azure-devtestlab-deployment`
+> Mis à jour le 2026-03-14 (session 2) | Branche : `feature/azure-devtestlab-deployment`
 > Repo : https://github.com/mounirelgholabzouri/ofppt-lab-infra
 
 ---
@@ -76,18 +76,27 @@ Les stagiaires lancent leurs VMs directement depuis la page du cours Moodle ; l'
   - `install.sh` — script installation sur serveur Moodle
   - `setup_moodle_activities.php` — création activités Moodle en CLI
 
+### ✅ TERMINÉ (session 2 — 2026-03-14)
+- [x] **Service Principal `sp-ofppt-moodle-dtl`** créé
+  - tenantId: `687d3cdf-7038-4560-a9f5-b3f0403eb863`
+  - clientId: `ae328530-c971-44a9-98dc-443f0618b4fc`
+  - Rôles: DevTest Labs User (lab scope) + Reader (RG)
+  - Credentials dans `.env.local` (hors git) + `config.php` (fallback)
+- [x] **Formules DTL recréées** (Succeeded) — raison échec: VNet ID manquant, artifacts
+  - `OFPPT-Cloud-Computing` / `OFPPT-Reseau-Infrastructure` / `OFPPT-Cybersecurite`
+- [x] **VM créée avec succès** — `tp-d2-0314-1401` (`Standard_D2s_v3`)
+  - FQDN: `tp-d2-0314-1401.francecentral.cloudapp.azure.com`
+  - `Standard_B2s` indisponible en France Central (SkuNotAvailable) — utiliser `Standard_D2s_v3`
+
 ### ⚠️ EN COURS / À FAIRE
-- [ ] **Corriger les formules DTL** (état `Failed`) — redéployer via `az lab formula create` ou corriger le JSON artifact source
-- [ ] **Créer le Service Principal Azure** pour l'intégration PHP Moodle
+- [ ] **Tester SSH port 22 + ttyd port 7681** sur la VM `tp-d2-0314-1401`
   ```bash
-  az ad sp create-for-rbac --name "sp-ofppt-moodle-dtl" \
-    --role "DevTest Labs User" \
-    --scopes "/subscriptions/b64ddf59.../resourceGroups/rg-ofppt-devtestlab/providers/Microsoft.DevTestLab/labs/ofppt-lab-formation"
+  ssh azureofppt@tp-d2-0314-1401.francecentral.cloudapp.azure.com
+  # pass: Ofppt@lab2026!
   ```
-  → Mettre les credentials dans `moodle/devtestlab_integration/config.php`
+- [ ] **Mettre à jour la policy DTL** — remplacer `Standard_B2s` par `Standard_D2s_v3` comme taille par défaut formules
 - [ ] **Déployer l'intégration Moodle** sur le serveur (`install.sh` + `setup_moodle_activities.php`)
-- [ ] **Tester SSH ttyd** sur la VM de test (port 7681)
-- [ ] **Git commit + push** des fichiers non commités (voir §4)
+- [ ] **Ajouter NSG rule port 7681** sur les VMs pour accès ttyd
 
 ---
 
@@ -186,22 +195,33 @@ moodle/devtestlab_integration/
 ## 8. Prochaine session — Reprendre ici
 
 ```
-ETAPE SUIVANTE : Git commit de tous les fichiers non commités
-puis : Créer le Service Principal pour Moodle
-puis : Corriger les formules DTL (état Failed)
-puis : Tester SSH ttyd sur la VM test-vm-0314-1302
+ETAPE SUIVANTE : Tester SSH + ttyd sur tp-d2-0314-1401
+puis : Déployer intégration Moodle sur serveur
+puis : Mettre à jour policy DTL (remplacer B2s par D2s_v3 comme défaut)
 ```
 
 **Commandes de reprise rapides :**
 ```powershell
-# 1. Vérifier état Azure
+# 1. Vérifier état Azure complet
 powershell -ExecutionPolicy Bypass -File azure\devtestlab\check_status.ps1
 
-# 2. Tester création VM
-powershell -ExecutionPolicy Bypass -File azure\devtestlab\test_vm.ps1
+# 2. Créer une nouvelle VM de test (D2s_v3)
+powershell -ExecutionPolicy Bypass -File azure\devtestlab\test_vm_d2sv3.ps1
 
-# 3. Créer Service Principal Moodle
-$az = "C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd"
-& $az ad sp create-for-rbac --name "sp-ofppt-moodle-dtl" --role "DevTest Labs User" `
-  --scopes "/subscriptions/b64ddf59-d9cf-4c48-8174-27962dfc261c/resourceGroups/rg-ofppt-devtestlab/providers/Microsoft.DevTestLab/labs/ofppt-lab-formation"
+# 3. Nettoyage si VMs Failed s'accumulent
+powershell -ExecutionPolicy Bypass -File azure\devtestlab\cleanup_failed_vms.ps1
+
+# 4. Créer VM + attendre qu'elle soit prête
+powershell -ExecutionPolicy Bypass -File azure\devtestlab\full_cleanup_and_test.ps1
 ```
+
+**Note critique sur les tailles VM :**
+- `Standard_B2s` : INDISPONIBLE en France Central (SkuNotAvailable — quota capacité Azure)
+- `Standard_D2s_v3` : DISPONIBLE — utiliser cette taille pour les tests
+- La policy DTL autorise les 2 tailles — pas besoin de changer la policy
+
+**Service Principal Moodle :**
+- SP Name: `sp-ofppt-moodle-dtl`
+- Client ID: `ae328530-c971-44a9-98dc-443f0618b4fc`
+- Tenant: `687d3cdf-7038-4560-a9f5-b3f0403eb863`
+- Credentials: `moodle/devtestlab_integration/.env.local` (non commité)

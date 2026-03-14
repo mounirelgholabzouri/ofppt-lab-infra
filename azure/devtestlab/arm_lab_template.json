@@ -46,14 +46,15 @@
 
   "variables": {
     "labResourceId": "[resourceId('Microsoft.DevTestLab/labs', parameters('labName'))]",
-    "vmSizeCloud":  "Standard_D4s_v3",
-    "vmSizeReseau": "Standard_D2s_v3",
-    "vmSizeCyber":  "Standard_D4s_v3",
+    "vmSizeDefault": "Standard_D2s_v3",
+    "vmSizeCloud":   "Standard_D2s_v3",
+    "vmSizeReseau":  "Standard_D2s_v3",
+    "vmSizeCyber":   "Standard_D2s_v3",
     "osDiskSizeGiB": 128,
     "ubuntuImage": {
-      "offer":     "0001-com-ubuntu-server-jammy",
+      "offer":     "ubuntu-22_04-lts",
       "publisher": "Canonical",
-      "sku":       "22_04-lts-gen2",
+      "sku":       "server-gen1",
       "osType":    "Linux",
       "version":   "latest"
     },
@@ -139,7 +140,7 @@
       "properties": {
         "status": "Enabled",
         "factName": "LabVmSize",
-        "threshold": "[string(createArray('Standard_B2s','Standard_B4ms','Standard_D2s_v3','Standard_D4s_v3'))]",
+        "threshold": "[string(createArray('Standard_D2s_v3','Standard_D4s_v3','Standard_B4ms','Standard_B2s'))]",
         "evaluatorType": "AllowedValuesPolicy",
         "description": "Tailles de VMs autorisées"
       }
@@ -157,7 +158,7 @@
           "userName": "[parameters('adminUsername')]",
           "sshKey": "[parameters('sshPublicKey')]",
           "isAuthenticationWithSshKey": true,
-          "labSubnetName": "Subnet",
+          "labSubnetName": "subnet-ofppt-dtl",
           "disallowPublicIpAddress": false,
           "storageType": "Premium",
           "osDiskSizeGiB": "[variables('osDiskSizeGiB')]",
@@ -179,7 +180,7 @@
           "userName": "[parameters('adminUsername')]",
           "sshKey": "[parameters('sshPublicKey')]",
           "isAuthenticationWithSshKey": true,
-          "labSubnetName": "Subnet",
+          "labSubnetName": "subnet-ofppt-dtl",
           "disallowPublicIpAddress": false,
           "storageType": "Premium",
           "osDiskSizeGiB": "[variables('osDiskSizeGiB')]",
@@ -201,7 +202,7 @@
           "userName": "[parameters('adminUsername')]",
           "sshKey": "[parameters('sshPublicKey')]",
           "isAuthenticationWithSshKey": true,
-          "labSubnetName": "Subnet",
+          "labSubnetName": "subnet-ofppt-dtl",
           "disallowPublicIpAddress": false,
           "storageType": "Premium",
           "osDiskSizeGiB": "[variables('osDiskSizeGiB')]",
