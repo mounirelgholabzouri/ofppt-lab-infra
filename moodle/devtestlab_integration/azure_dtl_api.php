@@ -358,6 +358,37 @@ class AzureDTLApi {
         return true;
     }
 
+    // ── Installer ttyd via Azure run-command (idempotent, async) ─────────────
+    // Déclenché à chaque poll getVmStatus() quand VM Running+Succeeded.
+    // Le script vérifie d'abord si ttyd est actif avant de ré-installer.
+    public function installTtydAsync(string $vmName): void {
+        $computeRg = $this->findComputeRg($vmName);
+        if (!$computeRg) return;
+
+        $script = 'command -v ttyd >/dev/null 2>&1 && systemctl is-active ttyd >/dev/null 2>&1 && exit 0; '
+            . 'VER=$(curl -sf https://api.github.com/repos/tsl0922/ttyd/releases/latest '
+            . '  | grep -oP "\"tag_name\":\\s*\"\\K[^\"]+") || VER="1.7.3"; '
+            . 'curl -sL "https://github.com/tsl0922/ttyd/releases/download/${VER}/ttyd.x86_64" '
+            . '  -o /usr/local/bin/ttyd && chmod +x /usr/local/bin/ttyd; '
+            . 'printf "[Unit]\nDescription=ttyd Web Terminal\nAfter=network.target\n'
+            . '[Service]\nExecStart=/usr/local/bin/ttyd -p 7681 bash\nRestart=always\n'
+            . 'User=azureofppt\n[Install]\nWantedBy=multi-user.target\n" '
+            . '> /etc/systemd/system/ttyd.service; '
+            . 'systemctl daemon-reload && systemctl enable --now ttyd';
+
+        $url = "https://management.azure.com/subscriptions/{$this->subscriptionId}"
+             . "/resourceGroups/$computeRg/providers/Microsoft.Compute/virtualMachines/$vmName"
+             . "/runCommand?api-version=2023-09-01";
+
+        // Fire-and-forget : timeout court, on n'attend pas la fin
+        $this->curl('POST', $url, [
+            'commandId' => 'RunShellScript',
+            'script'    => [$script],
+        ], [], 8);
+
+        dtl_log("installTtydAsync: run-command déclenché pour '$vmName'");
+    }
+
     // ── Démarrer une VM existante ─────────────────────────────────────────────
     public function startVm(string $vmName): bool {
         $this->getToken();
