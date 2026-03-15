@@ -1,5 +1,5 @@
 # CLAUDE.md — OFPPT-Lab Infrastructure
-> Mis à jour le 2026-03-15 (session 13) | Branche principale : `main`
+> Mis à jour le 2026-03-15 (session 14) | Branche principale : `main`
 
 ## 0. Instructions Claude (TOUJOURS RESPECTER)
 
@@ -116,7 +116,7 @@ Les stagiaires lancent leurs VMs depuis la page du cours Moodle ; l'accès se fa
   - Remplacer `Standard_B2s` par `Standard_D2s_v3` comme taille par défaut des formules
   - Ajouter création NSG avec rules SSH+ttyd dans le template
 
-### Priorité 3 — Déploiement Moodle prod ✅ COMPLÉTÉ (session 10-11)
+### Priorité 3 — Déploiement Moodle prod ✅ COMPLÉTÉ (session 10-11-14)
 - [x] **Intégration Moodle déployée** sur `OFPPT-ACADEMY-LMS` (40.115.121.107)
   - 6 fichiers PHP déployés dans `/var/www/html/moodle/local/devtestlab/`
   - 12 activités TP créées dans 8 cours Moodle (CC101, CC302, NET101, NET201, NET301, CYB101, CYB201, CYB301)
@@ -189,10 +189,24 @@ SESSION 13 — COMPLETEE ✅
    - Redirection vers cours Moodle ✅
 4. Leçon 23 ajoutée (voir section 6)
 
-SESSION 14 — ETAPES OPTIONNELLES :
-1. (Optionnel) Configurer DNS moodle.ofppt-academy.ma -> 40.115.121.107
-2. (Optionnel) HTTPS avec Let's Encrypt : certbot --apache -d moodle.ofppt-academy.ma
-3. (Optionnel) Optimiser le délai ttyd : pré-installer ttyd dans la formule DTL via artifact
+SESSION 14 — COMPLETEE ✅
+1. Domaine ofppt-academy.cloud acheté sur OVH
+2. DNS configuré sur OVH :
+   - ofppt-academy.cloud → 40.115.121.107
+   - www.ofppt-academy.cloud → 40.115.121.107
+   - moodle.ofppt-academy.cloud → 40.115.121.107
+3. HTTPS Let's Encrypt installé via certbot --apache
+   - Certificat valide jusqu'au 2026-06-13 (renouvellement auto)
+   - Couverture : ofppt-academy.cloud + www + moodle
+4. Moodle mis à jour :
+   - wwwroot → https://moodle.ofppt-academy.cloud/moodle
+   - cookiesecure=1 activé (HTTPS)
+   - config.php + devtestlab/config.php + DB mdl_config mis à jour
+   - Cache purgé
+5. URL Moodle prod : https://moodle.ofppt-academy.cloud/moodle ✅
+
+SESSION 15 — ETAPES OPTIONNELLES :
+1. (Optionnel) Optimiser le délai ttyd : pré-installer ttyd dans la formule DTL via artifact
 ```
 
 **Commandes de reprise rapides :**
@@ -202,6 +216,7 @@ powershell -ExecutionPolicy Bypass -File azure\devtestlab\check_status.ps1
 
 # SSH vers serveur Moodle prod
 ssh -i C:\Users\Administrateur\.ssh\ofppt_azure azureofppt@40.115.121.107
+# URL Moodle prod : https://moodle.ofppt-academy.cloud/moodle
 
 # Déployer fichiers PHP modifiés sur Moodle prod
 scp -i C:\Users\Administrateur\.ssh\ofppt_azure `
