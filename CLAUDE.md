@@ -1,5 +1,5 @@
 # CLAUDE.md — OFPPT-Lab Infrastructure
-> Mis à jour le 2026-03-15 (session 10) | Branche : `feature/azure-devtestlab-deployment`
+> Mis à jour le 2026-03-15 (session 11) | Branche : `feature/azure-devtestlab-deployment`
 
 ## 0. Instructions Claude (TOUJOURS RESPECTER)
 
@@ -155,12 +155,24 @@ SESSION 10 — COMPLETEE ✅
    - URL : http://40.115.121.107/moodle
 2. Integration DevTest Labs deployee (deploy_prod.sh) -- Token Azure OK
 
-SESSION 11 — ETAPES :
-1. Creer les cours Moodle (CC101, CC302, NET101, NET201, NET301, CYB101, CYB201, CYB301)
-   via l'interface admin : http://40.115.121.107/moodle/admin
-2. Tester launch_tp.php : http://40.115.121.107/moodle/local/devtestlab/launch_tp.php?tp=CC101-TP1
-3. (Optionnel) Configurer DNS moodle.ofppt-academy.ma -> 40.115.121.107
-4. (Optionnel) HTTPS avec Let's Encrypt : certbot --apache -d moodle.ofppt-academy.ma
+SESSION 11 — COMPLETEE ✅
+1. SSH vers VM Moodle prod repare (clé ofppt_azure ajoutée via run-command)
+2. Apache SetEnv configure (AZURE_CLIENT_SECRET, TP_SECRET_KEY, MOODLE_DB_PASS, etc.)
+   → /etc/apache2/sites-enabled/000-default.conf
+3. cookiesecure=0 dans mdl_config (fix login HTTP)
+4. Shortnames cours mis a jour (CC101, CC302, NET101, NET201, NET301, CYB101, CYB201, CYB301)
+5. setup_moodle_activities.php réécrit (insertion directe DB, plus add_moduleinfo)
+   → 12 activités TP créées dans 8 cours Moodle
+6. Validation end-to-end launch_tp.php + status.php :
+   - launch_tp.php : HTTP 200, page OFPPT Academy chargée, VM vm-admin-cc101t détectée
+   - status.php : ready:true + ttydReady:true validé ✅
+7. VM vm-admin-cc101t redémarrée (était deallocated), SSH + ttyd OK
+
+SESSION 12 — ETAPES :
+1. (Optionnel) Configurer DNS moodle.ofppt-academy.ma -> 40.115.121.107
+2. (Optionnel) HTTPS avec Let's Encrypt : certbot --apache -d moodle.ofppt-academy.ma
+3. Test end-to-end complet avec un stagiaire réel (login, lancer TP, accéder ttyd)
+4. Nettoyage VM vm-admin-cc101t (deallocate pour économiser quota PIP)
 ```
 
 **Commandes de reprise rapides :**
@@ -205,6 +217,10 @@ vagrant ssh vm-cloud -- "sudo cp /tmp/ltp.php /var/www/html/moodle/local/devtest
 15. **`status.php` ttyd check** : `isTtydReachable()` vérifie via `fsockopen` que le port 7681 répond AVANT de retourner `ready:true` → si ttyd pas installé, la page reste bloquée à l'étape 2 même si la VM est Running.
 16. **Debug lines à ne jamais commiter** : Les lignes `dtl_log('[DEBUG] ... client_secret ...')` exposent la clé en clair dans les logs — toujours supprimer avant commit.
 17. **DTL `formulaId` inexistant dans l'API** : L'API DTL ne supporte pas `formulaId` dans le body de création VM → `MissingRequiredProperties`. Il faut GET la formule, extraire `formulaContent.properties.galleryImageReference` et l'injecter dans le body VM. Le `storageType` de la formule est aussi à récupérer.
+18. **`add_moduleinfo()` Moodle** : Échoue en CLI avec "active database transaction detected" → utiliser insertion directe dans `mdl_url` + `mdl_course_modules` + mise à jour `sequence` dans `mdl_course_sections` + `rebuild_course_cache()`.
+19. **`cookiesecure=1` Moodle** : Si Moodle est en HTTP (pas HTTPS), les cookies session ne sont pas envoyés → login redirige indéfiniment. Fix : `UPDATE mdl_config SET value='0' WHERE name='cookiesecure'`.
+20. **SSH authorized_keys VM prod** : La VM Moodle OFPPT-ACADEMY-LMS n'avait que la clé `Administrateur@PC-PORTABLE`. Ajouter la clé `ofppt_azure.pub` via `az vm run-command invoke` pour accès SSH depuis Claude Code.
+21. **DTL vmExists vs Azure VM state** : La DTL API `vmExists()` retourne true même si la VM sous-jacente est deallocated (état Azure réel ≠ état DTL). Toujours vérifier `getVmStatus()` pour le power state réel. Le runbook `StopVmsByDuration` deallocate les VMs sans les supprimer du DTL.
 
 ---
 
