@@ -533,8 +533,11 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
   <div class="term-ready">
     <div class="term-ready-icon">&#128196;</div>
     <div class="term-ready-info">
-      <h3>&#10003; Terminal ouvert dans un nouvel onglet</h3>
+      <h3 id="term-ready-title">&#10003; Terminal prêt !</h3>
       <p id="term-url-hint">Connexion SSH web : <span id="term-url-display" style="color:#7dcfff;font-family:monospace"></span></p>
+      <p id="term-popup-hint" style="display:none;margin-top:5px;color:#fab387;font-size:11.5px">
+        &#9888; Le navigateur a bloqué l'ouverture automatique &mdash; cliquez sur <strong>Ouvrir le terminal</strong>.
+      </p>
     </div>
     <div class="term-ready-btns">
       <a id="ttyd-link" href="#" target="_blank" class="btn-term btn-term-open">
@@ -703,7 +706,18 @@ function setReady(ip) {
     if ($termUrl) $termUrl.textContent = url;
     if ($term) $term.style.display = 'block';
     // Ouvrir ttyd dans un nouvel onglet automatiquement
-    window.open(url, '_blank', 'noopener');
+    // (peut être bloqué par le navigateur si pas déclenché par un clic utilisateur)
+    const newTab = window.open(url, '_blank', 'noopener');
+    if (!newTab || newTab.closed || typeof newTab.closed === 'undefined') {
+        // Popup bloqué — informer l'utilisateur
+        const hint = document.getElementById('term-popup-hint');
+        const title = document.getElementById('term-ready-title');
+        if (hint) hint.style.display = 'block';
+        if (title) title.textContent = '\u26a0\ufe0f Terminal prêt — cliquez pour ouvrir';
+    } else {
+        const title = document.getElementById('term-ready-title');
+        if (title) title.textContent = '\u2705 Terminal ouvert dans un nouvel onglet';
+    }
     tStart = Date.now();
     if ($timer) { $timer.style.display = 'flex'; }
     updateTimer();

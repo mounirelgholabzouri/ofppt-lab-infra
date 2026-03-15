@@ -1,5 +1,5 @@
 # CLAUDE.md — OFPPT-Lab Infrastructure
-> Mis à jour le 2026-03-15 (session 6) | Branche : `feature/azure-devtestlab-deployment`
+> Mis à jour le 2026-03-15 (session 7) | Branche : `feature/azure-devtestlab-deployment`
 > Repo : https://github.com/mounirelgholabzouri/ofppt-lab-infra
 
 ---
@@ -75,13 +75,14 @@ Les stagiaires lancent leurs VMs depuis la page du cours Moodle ; l'accès se fa
 - [x] **Token Azure obtenu** — fix `http_build_query` separator (commité 96bc020)
 - [x] **VM `vm-admin-cc101t` créée via PHP API** — Running, NSG attaché, port 22 ouvert ✅
 
-### État VM de test Moodle
+### État VM de test Moodle (session 7)
 - VM Name : `vm-admin-cc101t`
 - FQDN : `vm-admin-cc101t.francecentral.cloudapp.azure.com`
-- IP : `40.89.159.34`
-- Compute RG : `ofppt-lab-formation-vm-admin-cc101t-961693`
+- IP : `20.216.128.34` (recréée en session 7)
+- Compute RG : `ofppt-lab-formation-vm-admin-cc101t-017751`
 - Port 22 (SSH) : **OUVERT** ✅
-- Port 7681 (ttyd) : **OUVERT** ✅ — ttyd 1.7.3 installé via `az vm run-command invoke` (session 6)
+- Port 7681 (ttyd) : **OUVERT** ✅ — ttyd 1.7.3 installé + service systemd actif
+- `status.php` : `ready:true` + `ttydReady:true` **validé** ✅
 
 ### Comportement ttyd (session 6)
 - `launch_tp.php` : ttyd s'ouvre dans un **nouvel onglet** automatiquement (plus d'iframe)
@@ -92,10 +93,15 @@ Les stagiaires lancent leurs VMs depuis la page du cours Moodle ; l'accès se fa
 
 ## 4. Ce qui RESTE À FAIRE ⚠️
 
-### Priorité 0 — ✅ COMPLÉTÉ (session 6)
-- [x] **ttyd installé sur `vm-admin-cc101t`** via `az vm run-command invoke` — service actif, port 7681 LISTEN
-- [x] **Code local synced** — fix HTTP 411 + lignes DEBUG supprimées (déjà en place)
-- [x] **launch_tp.php** — ttyd ouvre dans un nouvel onglet (plus d'iframe)
+### Priorité 0 — ✅ COMPLÉTÉ (session 7)
+- [x] **Validation end-to-end `launch_tp.php`** sur Vagrant — `ready:true` + `ttydReady:true` confirmé
+- [x] **VM recréée** `vm-admin-cc101t` (RG: `ofppt-lab-formation-vm-admin-cc101t-017751`, IP: `20.216.128.34`)
+  - ttyd 1.7.3 installé + service systemd actif, port 7681 LISTEN
+  - NSG créé (`nsg-vm-admin-cc101t`) et attaché à la NIC — SSH:22 + ttyd:7681 + HTTP:80 OUVERTS
+- [x] **launch_tp.php sync** sur Vagrant — version session 6 (nouvel onglet)
+- [x] **Fix popup blocker** dans `launch_tp.php` — message d'aide si popup bloqué par le navigateur
+- [x] **Extension PHP mysqli** activée sur Vagrant (phpenmod mysqli)
+- [x] **`deploy_prod.sh`** — nouveau script déploiement prod sécurisé (génère TP_SECRET_KEY aléatoire)
 
 ### Priorité 1 — Artifact ttyd (pour futures VMs)
 - [ ] **Mettre à jour les artifacts** `cloud-tools/install.sh`, `reseau-tools/install.sh`, `cyber-tools/install.sh`
@@ -122,13 +128,14 @@ Les stagiaires lancent leurs VMs depuis la page du cours Moodle ; l'accès se fa
 ## 5. Prochaine étape précise
 
 ```
-SESSION 7 — ETAPES :
-1. Valider launch_tp.php end-to-end sur Vagrant avec vm-admin-cc101t
-   → Vérifier step 1→2→3→4 : VM ready + nouvel onglet ttyd s'ouvre automatiquement
-2. Déployer intégration Moodle sur serveur prod
-   bash moodle/devtestlab_integration/install.sh
-   php moodle/devtestlab_integration/setup_moodle_activities.php
-3. (Optionnel) Tester create_vm_with_nsg.ps1 pour une nouvelle VM complète
+SESSION 8 — ETAPES :
+1. Déployer intégration Moodle sur serveur prod
+   AZURE_CLIENT_SECRET='xxx' MOODLE_WWWROOT='https://moodle.ofppt-academy.ma' \
+     sudo -E bash moodle/devtestlab_integration/deploy_prod.sh
+2. Mettre à jour les artifacts DTL (cloud-tools, reseau-tools, cyber-tools)
+   → Ajouter installation ttyd 1.7.3 + service systemd dans install.sh
+   → Ajouter création NSG dans le script de création VM
+3. (Optionnel) Créer create_vm_with_nsg.ps1 (VM + NSG en une seule opération)
 ```
 
 **Commandes de reprise rapides :**
@@ -141,6 +148,15 @@ powershell -ExecutionPolicy Bypass -File azure\devtestlab\check_pip_and_ssh.ps1
 
 # Ouvrir page de test Moodle (après vagrant up vm-cloud)
 # http://localhost:8080/moodle/local/devtestlab/launch_tp.php?tp=CC101-TP1
+
+# Re-créer NSG si la VM a été recréée
+powershell -ExecutionPolicy Bypass -File azure\devtestlab\create_nsg_vm_admin.ps1
+
+# Sync fichiers PHP sur Vagrant (après modifications locales)
+scp -P 2222 -i "$env:USERPROFILE\.vagrant.d\insecure_private_keys\vagrant.key.rsa" `
+  -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -o PubkeyAcceptedKeyTypes=+ssh-rsa `
+  moodle\devtestlab_integration\launch_tp.php vagrant@127.0.0.1:/tmp/ltp.php
+vagrant ssh vm-cloud -- "sudo cp /tmp/ltp.php /var/www/html/moodle/local/devtestlab/launch_tp.php && sudo chown www-data:www-data /var/www/html/moodle/local/devtestlab/launch_tp.php"
 ```
 
 ---
