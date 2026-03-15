@@ -104,7 +104,8 @@ for ($i = 1; $i -le $maxTries; $i++) {
         --url "$BASE/virtualmachines/${vmName}?api-version=2018-09-15" `
         --query "{prov:properties.provisioningState,fqdn:properties.fqdn}" `
         -o json 2>&1
-    $stObj = $stRaw | ConvertFrom-Json -ErrorAction SilentlyContinue
+    $stJson = ($stRaw -join ""); $si = $stJson.IndexOf('{')
+    $stObj  = if ($si -ge 0) { $stJson.Substring($si) | ConvertFrom-Json -ErrorAction SilentlyContinue } else { $null }
     $vmProv = $stObj.prov
     $vmFqdn = $stObj.fqdn
     Write-Host "  [$i/$maxTries] prov=$vmProv  fqdn=$vmFqdn" -ForegroundColor White

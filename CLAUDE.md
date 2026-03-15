@@ -1,5 +1,5 @@
 # CLAUDE.md — OFPPT-Lab Infrastructure
-> Mis à jour le 2026-03-15 (session 7) | Branche : `feature/azure-devtestlab-deployment`
+> Mis à jour le 2026-03-15 (session 8) | Branche : `feature/azure-devtestlab-deployment`
 > Repo : https://github.com/mounirelgholabzouri/ofppt-lab-infra
 
 ---
@@ -104,9 +104,8 @@ Les stagiaires lancent leurs VMs depuis la page du cours Moodle ; l'accès se fa
 - [x] **`deploy_prod.sh`** — nouveau script déploiement prod sécurisé (génère TP_SECRET_KEY aléatoire)
 
 ### Priorité 1 — Artifact ttyd (pour futures VMs)
-- [ ] **Mettre à jour les artifacts** `cloud-tools/install.sh`, `reseau-tools/install.sh`, `cyber-tools/install.sh`
-  - Ajouter installation ttyd 1.7.3 + service systemd
-  - Ajouter les règles NSG dans le script de création VM
+- [x] **Artifacts mis à jour** `cloud-tools/install.sh`, `reseau-tools/install.sh`, `cyber-tools/install.sh`
+  - ttyd (version latest via GitHub API) + service systemd présents dans les 3 scripts ✅
 
 ### Priorité 2 — ARM Template + Policy
 - [ ] **Mettre à jour `arm_lab_template.json`** :
@@ -121,21 +120,26 @@ Les stagiaires lancent leurs VMs depuis la page du cours Moodle ; l'accès se fa
   ```
 
 ### Priorité 4 — Script création VM amélioré
-- [ ] **Script `create_vm_with_nsg.ps1`** — créer VM + NSG + attacher NSG en une seule opération
+- [x] **Script `create_vm_with_nsg.ps1`** — VM + NSG + attachement NIC en une seule opération ✅
+  - Paramètres : `-VmPrefix`, `-VmSize`, `-Formula`, `-WaitReady`
+  - Découverte automatique du compute RG, fix ConvertFrom-Json (IndexOf) (session 8)
 
 ---
 
 ## 5. Prochaine étape précise
 
 ```
-SESSION 8 — ETAPES :
+SESSION 8 — COMPLETEE ✅
+1. Fix ConvertFrom-Json (IndexOf) dans create_vm_with_nsg.ps1 (leçon 11)
+2. CLAUDE.md mis à jour : Priorité 1 (artifacts) + Priorité 4 (create_vm_with_nsg.ps1) cochés
+
+SESSION 9 — ETAPES :
 1. Déployer intégration Moodle sur serveur prod
    AZURE_CLIENT_SECRET='xxx' MOODLE_WWWROOT='https://moodle.ofppt-academy.ma' \
      sudo -E bash moodle/devtestlab_integration/deploy_prod.sh
-2. Mettre à jour les artifacts DTL (cloud-tools, reseau-tools, cyber-tools)
-   → Ajouter installation ttyd 1.7.3 + service systemd dans install.sh
-   → Ajouter création NSG dans le script de création VM
-3. (Optionnel) Créer create_vm_with_nsg.ps1 (VM + NSG en une seule opération)
+2. Tester create_vm_with_nsg.ps1 sur une vraie VM (avec formule OFPPT-Cloud-Computing)
+   powershell -ExecutionPolicy Bypass -File azure\devtestlab\create_vm_with_nsg.ps1 \
+     -Formula OFPPT-Cloud-Computing
 ```
 
 **Commandes de reprise rapides :**
