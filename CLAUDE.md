@@ -1,5 +1,5 @@
 # CLAUDE.md — OFPPT-Lab Infrastructure
-> Mis à jour le 2026-03-15 (session 12) | Branche : `feature/azure-devtestlab-deployment`
+> Mis à jour le 2026-03-15 (session 13) | Branche : `feature/azure-devtestlab-deployment`
 
 ## 0. Instructions Claude (TOUJOURS RESPECTER)
 
@@ -178,10 +178,26 @@ SESSION 12 — COMPLETEE ✅
    - Bouton "Terminer le TP" : confirmation + cleanup + redirection
    - Timer 4h expiré : cleanup auto + redirection 3s
 
-SESSION 13 — ETAPES :
+SESSION 13 — COMPLETEE ✅
+1. Test intégral minutieux end-to-end effectué
+2. BUG DÉCOUVERT ET CORRIGÉ : nouvelles VMs DTL créées sans artifact → ttyd absent
+   - Fix : installTtydAsync() dans azure_dtl_api.php via Azure run-command (fire-and-forget)
+   - Fix : VM_BOOT_TIMEOUT 600 → 1200s dans config.php
+3. Parcours stagiaire validé complet :
+   - Login Moodle prod (stagiaire.cloud1) ✅
+   - Page cours CC101 avec activité TP visible ✅
+   - launch_tp.php → VM vm-stagi-cc101t créée (Running/Succeeded) ✅
+   - NSG auto-créé (SSH:22 + ttyd:7681) ✅
+   - ttyd installé via run-command Azure ✅
+   - Terminal SSH dans navigateur (ttyd port 7681) ouvert ✅
+   - Bouton "Terminer le TP" → cleanup_tp.php → VM Deleting ✅
+   - Redirection vers cours Moodle ✅
+4. Leçon 23 ajoutée (voir section 6)
+
+SESSION 14 — ETAPES OPTIONNELLES :
 1. (Optionnel) Configurer DNS moodle.ofppt-academy.ma -> 40.115.121.107
 2. (Optionnel) HTTPS avec Let's Encrypt : certbot --apache -d moodle.ofppt-academy.ma
-3. Test end-to-end complet avec un stagiaire réel (login, lancer TP, accéder ttyd, fermer → VM supprimée)
+3. (Optionnel) Optimiser le délai ttyd : pré-installer ttyd dans la formule DTL via artifact
 ```
 
 **Commandes de reprise rapides :**
@@ -231,6 +247,7 @@ vagrant ssh vm-cloud -- "sudo cp /tmp/ltp.php /var/www/html/moodle/local/devtest
 20. **SSH authorized_keys VM prod** : La VM Moodle OFPPT-ACADEMY-LMS n'avait que la clé `Administrateur@PC-PORTABLE`. Ajouter la clé `ofppt_azure.pub` via `az vm run-command invoke` pour accès SSH depuis Claude Code.
 21. **DTL vmExists vs Azure VM state** : La DTL API `vmExists()` retourne true même si la VM sous-jacente est deallocated (état Azure réel ≠ état DTL). Toujours vérifier `getVmStatus()` pour le power state réel. Le runbook `StopVmsByDuration` deallocate les VMs sans les supprimer du DTL.
 22. **sendBeacon + PHP background** : `navigator.sendBeacon()` envoie un POST même à la fermeture de l'onglet mais n'attend pas la réponse. Côté PHP, utiliser `ignore_user_abort(true)` + `fastcgi_finish_request()` pour répondre immédiatement puis continuer la suppression DTL en arrière-plan (la suppression prend 1-2 minutes).
+23. **ttyd absent sur nouvelles VMs** : Les formules DTL sont créées sans artifacts (leçon 5 : no artifacts pour éviter Failed). Conséquence : ttyd n'est pas installé sur les nouvelles VMs. Fix : `installTtydAsync()` dans `getVmStatus()` déclenche `az vm run-command` (fire-and-forget) via l'API Compute (`Microsoft.Compute/virtualMachines/{vm}/runCommand`). Le script bash vérifie d'abord si ttyd est actif (idempotent). `VM_BOOT_TIMEOUT` doit être ≥ 1200s pour couvrir VM (~8min) + run-command ttyd (~3min).
 
 ---
 
