@@ -203,12 +203,17 @@ class AzureDTLApi {
             $publicIp = $this->getVmPublicIp($computeId);
         }
 
-        // Dès que la VM est Succeeded, s'assurer que le NSG est en place
-        if ($provState === 'Succeeded' && !empty($publicIp)) {
+        // Dès que la VM est Running+Succeeded, s'assurer que NSG et ttyd sont en place
+        if ($powerState === 'Running' && $provState === 'Succeeded' && !empty($publicIp)) {
             try {
                 $this->ensureNsg($vmName);
             } catch (Exception $e) {
                 dtl_log("ensureNsg '$vmName' : " . $e->getMessage(), 'WARN');
+            }
+            try {
+                $this->installTtydAsync($vmName);
+            } catch (Exception $e) {
+                dtl_log("installTtydAsync '$vmName' : " . $e->getMessage(), 'WARN');
             }
         }
 
