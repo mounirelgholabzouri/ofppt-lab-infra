@@ -33,7 +33,7 @@ section() { echo -e "\n${BLUE}${BOLD}╔══ $1 ══╗${NC}"; }
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 RESOURCE_GROUP="rg-ofppt-devtestlab"
-LOCATION="westeurope"
+LOCATION="francecentral"
 LAB_NAME="ofppt-lab-formation"
 ADMIN_USER="azureofppt"
 SSH_KEY_FILE="$HOME/.ssh/ofppt_azure.pub"
@@ -49,11 +49,18 @@ ARTIFACT_REPO_BRANCH="master"
 ARTIFACT_REPO_FOLDER="/azure/devtestlab/artifacts"
 
 # Politiques du lab
-AUTO_SHUTDOWN_TIME="2000"          # 20h00 heure locale
-AUTO_SHUTDOWN_TZ="Africa/Casablanca"
-MAX_VMS_PER_USER=2                 # Quota par stagiaire
+AUTO_SHUTDOWN_TIME="2359"          # Filet de sécurité (arrêt durée géré par Automation)
+AUTO_SHUTDOWN_TZ="Romance Standard Time"
+MAX_VMS_PER_USER=3                 # Quota par stagiaire (3 filières possibles)
 MAX_VMS_PER_LAB=30                 # Quota total du lab
 OS_DISK_GB=128
+
+# Arrêt par durée — Azure Automation
+AUTOMATION_ACCOUNT="aa-ofppt-lab-duration"
+MAX_DURATION_HOURS=4               # Arrêt automatique après 4h de fonctionnement
+RUNBOOK_NAME="Stop-DTL-VMs-By-Duration"
+RUNBOOK_FILE="$(dirname "$0")/runbook_stop_by_duration.ps1"
+SCHEDULE_INTERVAL_MINUTES=15       # Vérification toutes les 15 minutes
 
 # Tags
 TAGS="Environment=Lab Project=OFPPT-Lab Owner=Formation ManagedBy=DevTestLabs"
@@ -504,9 +511,10 @@ show_summary() {
     echo -e "  └─ ${CYAN}OFPPT-Cybersecurite${NC}         (${VM_SIZE_CYBER})"
     echo ""
     echo -e "  ${BOLD}Politiques actives${NC}"
-    echo -e "  ├─ Arrêt auto   : ${YELLOW}$AUTO_SHUTDOWN_TIME${NC} ($AUTO_SHUTDOWN_TZ)"
-    echo -e "  ├─ VMs/stagiaire: ${YELLOW}max $MAX_VMS_PER_USER${NC}"
-    echo -e "  └─ VMs totales  : ${YELLOW}max $MAX_VMS_PER_LAB${NC}"
+    echo -e "  ├─ Arrêt par durée : ${YELLOW}${MAX_DURATION_HOURS}h max${NC} (Azure Automation — toutes les ${SCHEDULE_INTERVAL_MINUTES} min)"
+    echo -e "  ├─ Filet sécurité  : ${YELLOW}23h59${NC} (arrêt fixe DTL en dernier recours)"
+    echo -e "  ├─ VMs/stagiaire   : ${YELLOW}max $MAX_VMS_PER_USER${NC}"
+    echo -e "  └─ VMs totales     : ${YELLOW}max $MAX_VMS_PER_LAB${NC}"
     echo ""
     echo -e "  ${BOLD}Portail Self-Service stagiaires :${NC}"
     echo -e "  ${MAGENTA}https://labs.azure.com${NC}"
@@ -527,6 +535,161 @@ show_summary() {
     echo -e "  ${YELLOW}Pour supprimer le lab :${NC}"
     echo -e "  ${RED}az group delete --name $RESOURCE_GROUP --yes --no-wait${NC}"
     echo ""
+}
+
+# ── Azure Automation — Arrêt par durée ───────────────────────────────────────
+setup_automation() {
+    section "Azure Automation — Arrêt par durée (${MAX_DURATION_HOURS}h)"
+
+    local SUBSCRIPTION_ID
+    SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+
+    # 1. Créer l'Automation Account
+    log "Création de l'Automation Account : $AUTOMATION_ACCOUNT"
+    az automation account create \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "$AUTOMATION_ACCOUNT" \
+        --location "$LOCATION" \
+        --sku "Basic" \
+        --tags $TAGS \
+        --output table 2>/dev/null || warn "Automation Account déjà existant"
+    log "Automation Account '$AUTOMATION_ACCOUNT' prêt"
+
+    # 2. Activer la Managed Identity (System-Assigned)
+    log "Activation de la Managed Identity (System-Assigned)..."
+    az automation account update \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "$AUTOMATION_ACCOUNT" \
+        --set identity.type=SystemAssigned \
+        --output none 2>/dev/null || warn "Managed Identity déjà activée"
+
+    local PRINCIPAL_ID
+    PRINCIPAL_ID=$(az automation account show \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "$AUTOMATION_ACCOUNT" \
+        --query identity.principalId -o tsv 2>/dev/null)
+    log "Principal ID (Managed Identity) : $PRINCIPAL_ID"
+
+    # 3. Attribuer le rôle Contributor sur le Resource Group
+    log "Attribution du rôle 'Contributor' sur le Resource Group..."
+    az role assignment create \
+        --assignee-object-id "$PRINCIPAL_ID" \
+        --assignee-principal-type ServicePrincipal \
+        --role "Contributor" \
+        --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP" \
+        --output none 2>/dev/null || warn "Rôle déjà attribué"
+    log "Rôle Contributor attribué"
+
+    # 4. Importer le module Az.Accounts dans l'Automation Account
+    log "Import du module Az.Accounts (nécessaire pour Connect-AzAccount)..."
+    az automation module create \
+        --resource-group "$RESOURCE_GROUP" \
+        --automation-account-name "$AUTOMATION_ACCOUNT" \
+        --name "Az.Accounts" \
+        --content-link "https://www.powershellgallery.com/api/v2/package/Az.Accounts" \
+        --output none 2>/dev/null || warn "Module Az.Accounts déjà importé"
+
+    az automation module create \
+        --resource-group "$RESOURCE_GROUP" \
+        --automation-account-name "$AUTOMATION_ACCOUNT" \
+        --name "Az.Resources" \
+        --content-link "https://www.powershellgallery.com/api/v2/package/Az.Resources" \
+        --output none 2>/dev/null || warn "Module Az.Resources déjà importé"
+
+    az automation module create \
+        --resource-group "$RESOURCE_GROUP" \
+        --automation-account-name "$AUTOMATION_ACCOUNT" \
+        --name "Az.Monitor" \
+        --content-link "https://www.powershellgallery.com/api/v2/package/Az.Monitor" \
+        --output none 2>/dev/null || warn "Module Az.Monitor déjà importé"
+    log "Modules Az importés (import asynchrone — attendre 1-2 min)"
+
+    # 5. Créer le Runbook PowerShell
+    log "Création du Runbook : $RUNBOOK_NAME"
+    [[ -f "$RUNBOOK_FILE" ]] || error "Fichier runbook introuvable : $RUNBOOK_FILE"
+
+    az automation runbook create \
+        --resource-group "$RESOURCE_GROUP" \
+        --automation-account-name "$AUTOMATION_ACCOUNT" \
+        --name "$RUNBOOK_NAME" \
+        --type "PowerShell" \
+        --description "Arrête les VMs DTL après ${MAX_DURATION_HOURS}h de fonctionnement" \
+        --output none 2>/dev/null || warn "Runbook déjà existant"
+
+    # 6. Publier le contenu du runbook
+    log "Publication du contenu du runbook..."
+    az automation runbook replace-content \
+        --resource-group "$RESOURCE_GROUP" \
+        --automation-account-name "$AUTOMATION_ACCOUNT" \
+        --name "$RUNBOOK_NAME" \
+        --content @"$RUNBOOK_FILE" \
+        --output none
+
+    az automation runbook publish \
+        --resource-group "$RESOURCE_GROUP" \
+        --automation-account-name "$AUTOMATION_ACCOUNT" \
+        --name "$RUNBOOK_NAME" \
+        --output none
+    log "Runbook publié avec succès"
+
+    # 7. Créer le planning toutes les N minutes
+    log "Création du planning : toutes les ${SCHEDULE_INTERVAL_MINUTES} minutes..."
+    local SCHEDULE_NAME="schedule-every-${SCHEDULE_INTERVAL_MINUTES}min"
+    local START_TIME
+    START_TIME=$(date -u -d "+2 minutes" '+%Y-%m-%dT%H:%M:%S+00:00' 2>/dev/null || \
+                 python3 -c "from datetime import datetime,timedelta; print((datetime.utcnow()+timedelta(minutes=2)).strftime('%Y-%m-%dT%H:%M:%S+00:00'))")
+
+    az automation schedule create \
+        --resource-group "$RESOURCE_GROUP" \
+        --automation-account-name "$AUTOMATION_ACCOUNT" \
+        --name "$SCHEDULE_NAME" \
+        --frequency "Minute" \
+        --interval "$SCHEDULE_INTERVAL_MINUTES" \
+        --start-time "$START_TIME" \
+        --description "Vérification durée VMs toutes les ${SCHEDULE_INTERVAL_MINUTES} min" \
+        --output none 2>/dev/null || warn "Planning déjà existant"
+
+    # 8. Lier le planning au runbook avec les paramètres
+    log "Association du planning au runbook..."
+    az automation job-schedule create \
+        --resource-group "$RESOURCE_GROUP" \
+        --automation-account-name "$AUTOMATION_ACCOUNT" \
+        --runbook-name "$RUNBOOK_NAME" \
+        --schedule-name "$SCHEDULE_NAME" \
+        --parameters \
+            ResourceGroupName="$RESOURCE_GROUP" \
+            LabName="$LAB_NAME" \
+            MaxDurationHours="$MAX_DURATION_HOURS" \
+            DryRun="false" \
+        --output none 2>/dev/null || warn "Association planning/runbook déjà existante"
+
+    log ""
+    log "✅ Automation configurée avec succès :"
+    log "   Runbook     : $RUNBOOK_NAME"
+    log "   Planning    : toutes les $SCHEDULE_INTERVAL_MINUTES min"
+    log "   Durée max   : $MAX_DURATION_HOURS heures"
+    log "   Cible       : lab '$LAB_NAME'"
+    info "Les VMs seront arrêtées automatiquement après ${MAX_DURATION_HOURS}h de fonctionnement"
+}
+
+# ── Test du runbook en mode Dry Run ──────────────────────────────────────────
+test_automation() {
+    section "Test du Runbook (Dry Run)"
+
+    log "Lancement d'un job de test (DryRun=true — aucune VM ne sera arrêtée)..."
+    local JOB_ID
+    JOB_ID=$(az automation job create \
+        --resource-group "$RESOURCE_GROUP" \
+        --automation-account-name "$AUTOMATION_ACCOUNT" \
+        --runbook-name "$RUNBOOK_NAME" \
+        --parameters \
+            ResourceGroupName="$RESOURCE_GROUP" \
+            LabName="$LAB_NAME" \
+            MaxDurationHours="$MAX_DURATION_HOURS" \
+            DryRun="true" \
+        --query name -o tsv)
+    log "Job lancé : $JOB_ID"
+    info "Voir les logs : az automation job stream list --resource-group $RESOURCE_GROUP --automation-account-name $AUTOMATION_ACCOUNT --job-name $JOB_ID --stream-type Output --query '[].value' -o tsv"
 }
 
 # ── Destruction du lab ────────────────────────────────────────────────────────
@@ -567,6 +730,7 @@ case "${1:-deploy}" in
         register_artifact_repo
         create_formulas
         configure_cost_management
+        setup_automation          # ← Arrêt par durée (4h)
         add_lab_users
         show_summary
         ;;
@@ -578,6 +742,16 @@ case "${1:-deploy}" in
     policies)
         check_prerequisites
         configure_policies
+        ;;
+    automation)
+        # Déployer ou mettre à jour uniquement l'Automation
+        check_prerequisites
+        setup_automation
+        ;;
+    test-automation)
+        # Tester le runbook sans arrêter de VMs
+        check_prerequisites
+        test_automation
         ;;
     status)
         check_prerequisites
@@ -597,14 +771,16 @@ case "${1:-deploy}" in
         echo ""
         echo -e "  ${BOLD}OFPPT-Lab — Déploiement Azure DevTest Labs${NC}"
         echo ""
-        echo -e "  Usage: $0 {deploy|create-vms|policies|status|add-users|destroy}"
+        echo -e "  Usage: $0 {deploy|create-vms|policies|automation|test-automation|status|add-users|destroy}"
         echo ""
-        echo -e "  ${CYAN}deploy${NC}       Déployer le lab complet (Lab + Politiques + Formules)"
-        echo -e "  ${CYAN}create-vms${NC}   Créer les VMs de démonstration (formateur)"
-        echo -e "  ${CYAN}policies${NC}     Appliquer/mettre à jour les politiques du lab"
-        echo -e "  ${CYAN}status${NC}       Voir l'état du lab et ses VMs"
-        echo -e "  ${CYAN}add-users${NC}    Ajouter des stagiaires (USERS_FILE=liste.txt)"
-        echo -e "  ${CYAN}destroy${NC}      Supprimer l'infrastructure complète"
+        echo -e "  ${CYAN}deploy${NC}            Déployer le lab complet (Lab + Politiques + Formules + Automation)"
+        echo -e "  ${CYAN}create-vms${NC}        Créer les VMs de démonstration (formateur)"
+        echo -e "  ${CYAN}policies${NC}          Appliquer/mettre à jour les politiques du lab"
+        echo -e "  ${CYAN}automation${NC}        Déployer/mettre à jour l'arrêt par durée (${MAX_DURATION_HOURS}h)"
+        echo -e "  ${CYAN}test-automation${NC}   Tester le runbook sans arrêter de VMs (Dry Run)"
+        echo -e "  ${CYAN}status${NC}            Voir l'état du lab et ses VMs"
+        echo -e "  ${CYAN}add-users${NC}         Ajouter des stagiaires (USERS_FILE=liste.txt)"
+        echo -e "  ${CYAN}destroy${NC}           Supprimer l'infrastructure complète"
         echo ""
         exit 1
         ;;

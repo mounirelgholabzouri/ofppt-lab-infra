@@ -152,6 +152,41 @@ source <(kubectl completion bash) 2>/dev/null || true
 complete -o default -F __start_kubectl k 2>/dev/null || true
 BASHRC
 
+# ── ttyd — Terminal SSH dans le navigateur (intégration Moodle) ──────────────
+log "Installation de ttyd (SSH web pour l'intégration Moodle)..."
+TTYD_PORT=7681
+if ! command -v ttyd &>/dev/null; then
+    TTYD_VERSION=$(curl -fsSL "https://api.github.com/repos/tsl0922/ttyd/releases/latest" \
+                  | grep '"tag_name"' | cut -d'"' -f4 || echo "1.7.4")
+    curl -fsSLo /usr/local/bin/ttyd \
+        "https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/ttyd.x86_64"
+    chmod +x /usr/local/bin/ttyd
+    log "ttyd installé : version $TTYD_VERSION"
+fi
+
+# Service systemd pour ttyd
+cat > /etc/systemd/system/ttyd.service << SVCEOF
+[Unit]
+Description=OFPPT Lab - Terminal SSH Web (Moodle Integration)
+After=network.target
+
+[Service]
+Type=simple
+User=azureofppt
+ExecStart=/usr/local/bin/ttyd --port $TTYD_PORT --interface 0.0.0.0 --writable bash
+Restart=always
+RestartSec=3
+Environment=HOME=/home/azureofppt
+WorkingDirectory=/home/azureofppt
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+
+systemctl daemon-reload
+systemctl enable --now ttyd
+log "ttyd démarré sur le port $TTYD_PORT (accessible depuis Moodle)"
+
 # ── Résumé ───────────────────────────────────────────────────────────────────
 log ""
 log "=== Installation Cloud Computing terminée ==="
@@ -164,4 +199,5 @@ log "kubectl        : $(kubectl version --client --short 2>/dev/null || echo 'N/
 log "minikube       : $(minikube version --short 2>/dev/null || echo 'N/A')"
 log "Ansible        : $(ansible --version | head -1 2>/dev/null || echo 'N/A')"
 log "Helm           : $(helm version --short 2>/dev/null || echo 'N/A')"
+log "ttyd (SSH web) : port $TTYD_PORT — $(systemctl is-active ttyd 2>/dev/null || echo 'N/A')"
 log "=== VM prête pour les TPs Cloud Computing OFPPT ==="

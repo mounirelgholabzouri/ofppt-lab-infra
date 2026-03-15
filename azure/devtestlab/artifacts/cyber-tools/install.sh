@@ -199,6 +199,35 @@ export WORDLISTS=/usr/share/wordlists
 export ROCKYOU=/usr/share/wordlists/rockyou.txt
 BASHRC
 
+# ── ttyd — Terminal SSH dans le navigateur (intégration Moodle) ──────────────
+log "Installation de ttyd (SSH web pour l'intégration Moodle)..."
+TTYD_PORT=7681
+if ! command -v ttyd &>/dev/null; then
+    TTYD_VERSION=$(curl -fsSL "https://api.github.com/repos/tsl0922/ttyd/releases/latest" \
+                  | grep '"tag_name"' | cut -d'"' -f4 || echo "1.7.4")
+    curl -fsSLo /usr/local/bin/ttyd \
+        "https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/ttyd.x86_64"
+    chmod +x /usr/local/bin/ttyd
+fi
+cat > /etc/systemd/system/ttyd.service << SVCEOF
+[Unit]
+Description=OFPPT Lab - Terminal SSH Web (Moodle Integration)
+After=network.target
+[Service]
+Type=simple
+User=azureofppt
+ExecStart=/usr/local/bin/ttyd --port $TTYD_PORT --interface 0.0.0.0 --writable bash
+Restart=always
+RestartSec=3
+Environment=HOME=/home/azureofppt
+WorkingDirectory=/home/azureofppt
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+systemctl daemon-reload
+systemctl enable --now ttyd
+log "ttyd démarré sur le port $TTYD_PORT"
+
 # ── Résumé ───────────────────────────────────────────────────────────────────
 log ""
 log "=== Installation Cybersécurité terminée ==="

@@ -4,7 +4,7 @@
 
   "metadata": {
     "description": "Template ARM — Déploiement complet du Lab OFPPT via Azure DevTest Labs",
-    "comments": "Déploie le lab, ses politiques, les formules de VMs et le référentiel d'artefacts en une seule commande ARM."
+    "comments": "Déploie le lab, ses politiques et les formules de VMs. Le référentiel d'artefacts s'ajoute séparément via az lab artifact-source create."
   },
 
   "parameters": {
@@ -25,26 +25,16 @@
     },
     "sshPublicKey": {
       "type": "string",
-      "metadata": { "description": "Clé publique SSH pour accès aux VMs (contenu de ~/.ssh/ofppt_azure.pub)" }
-    },
-    "artifactRepoUri": {
-      "type": "string",
-      "defaultValue": "https://github.com/votre-org/ofppt-lab",
-      "metadata": { "description": "URL du dépôt GitHub contenant les artefacts" }
-    },
-    "artifactRepoToken": {
-      "type": "securestring",
-      "defaultValue": "",
-      "metadata": { "description": "Personal Access Token GitHub (laisser vide pour repo public)" }
+      "metadata": { "description": "Clé publique SSH pour accès aux VMs" }
     },
     "autoShutdownTime": {
       "type": "string",
-      "defaultValue": "2000",
-      "metadata": { "description": "Heure d'arrêt automatique des VMs (format HHMM)" }
+      "defaultValue": "2359",
+      "metadata": { "description": "Heure d'arrêt de sécurité (format HHMM) — l'arrêt par durée est géré par Automation Runbook" }
     },
     "maxVmsPerUser": {
       "type": "int",
-      "defaultValue": 2,
+      "defaultValue": 3,
       "metadata": { "description": "Nombre maximum de VMs par stagiaire" }
     },
     "maxVmsPerLab": {
@@ -56,14 +46,15 @@
 
   "variables": {
     "labResourceId": "[resourceId('Microsoft.DevTestLab/labs', parameters('labName'))]",
-    "vmSizeCloud":  "Standard_D4s_v3",
-    "vmSizeReseau": "Standard_D2s_v3",
-    "vmSizeCyber":  "Standard_D4s_v3",
+    "vmSizeDefault": "Standard_D2s_v3",
+    "vmSizeCloud":   "Standard_D2s_v3",
+    "vmSizeReseau":  "Standard_D2s_v3",
+    "vmSizeCyber":   "Standard_D2s_v3",
     "osDiskSizeGiB": 128,
     "ubuntuImage": {
-      "offer":     "0001-com-ubuntu-server-jammy",
+      "offer":     "ubuntu-22_04-lts",
       "publisher": "Canonical",
-      "sku":       "22_04-lts-gen2",
+      "sku":       "server-gen1",
       "osType":    "Linux",
       "version":   "latest"
     },
@@ -77,9 +68,6 @@
 
   "resources": [
 
-    // ═══════════════════════════════════════════════
-    // 1. Lab Azure DevTest Labs
-    // ═══════════════════════════════════════════════
     {
       "type": "Microsoft.DevTestLab/labs",
       "apiVersion": "2018-09-15",
@@ -92,29 +80,22 @@
         "announcement": {
           "enabled": "Enabled",
           "title": "Bienvenue sur OFPPT-Lab",
-          "markdown": "## Bienvenue sur la plateforme OFPPT-Lab\n\nChoisissez votre filière et créez votre VM de TP depuis les formules disponibles.\n\n**Filières disponibles :**\n- Cloud Computing (Docker, Terraform, Kubernetes)\n- Réseau & Infrastructure (Wireshark, FRRouting, VPN)\n- Cybersécurité (Metasploit, Nmap, Burp Suite)\n\n> Les VMs s'arrêtent automatiquement à 20h00 pour économiser les coûts."
+          "markdown": "## Bienvenue sur la plateforme OFPPT-Lab\n\nChoisissez votre filière et créez votre VM de TP depuis les formules disponibles.\n\n**Filières disponibles :**\n- Cloud Computing (Docker, Terraform, Kubernetes)\n- Réseau & Infrastructure (Wireshark, FRRouting, VPN)\n- Cybersécurité (Metasploit, Nmap, Burp Suite)\n\n> Les VMs s'arrêtent automatiquement après 4h de fonctionnement."
         }
       }
     },
 
-    // ═══════════════════════════════════════════════
-    // 2. Planning d'arrêt automatique (20h00)
-    // ═══════════════════════════════════════════════
     {
       "type": "Microsoft.DevTestLab/labs/schedules",
       "apiVersion": "2018-09-15",
       "name": "[concat(parameters('labName'), '/LabVmsShutdown')]",
       "location": "[parameters('location')]",
-      "dependsOn": [
-        "[variables('labResourceId')]"
-      ],
+      "dependsOn": [ "[variables('labResourceId')]" ],
       "properties": {
         "status": "Enabled",
         "taskType": "LabVmsShutdownTask",
-        "dailyRecurrence": {
-          "time": "[parameters('autoShutdownTime')]"
-        },
-        "timeZoneId": "Morocco Standard Time",
+        "dailyRecurrence": { "time": "[parameters('autoShutdownTime')]" },
+        "timeZoneId": "Romance Standard Time",
         "notificationSettings": {
           "status": "Enabled",
           "timeInMinutes": 15,
@@ -123,16 +104,11 @@
       }
     },
 
-    // ═══════════════════════════════════════════════
-    // 3. Politique — Quota VMs par utilisateur
-    // ═══════════════════════════════════════════════
     {
       "type": "Microsoft.DevTestLab/labs/policySets/policies",
       "apiVersion": "2018-09-15",
       "name": "[concat(parameters('labName'), '/default/MaxVmsAllowedPerUser')]",
-      "dependsOn": [
-        "[variables('labResourceId')]"
-      ],
+      "dependsOn": [ "[variables('labResourceId')]" ],
       "properties": {
         "status": "Enabled",
         "factName": "UserOwnedLabVmCount",
@@ -142,16 +118,11 @@
       }
     },
 
-    // ═══════════════════════════════════════════════
-    // 4. Politique — Quota VMs total du lab
-    // ═══════════════════════════════════════════════
     {
       "type": "Microsoft.DevTestLab/labs/policySets/policies",
       "apiVersion": "2018-09-15",
       "name": "[concat(parameters('labName'), '/default/MaxVmsAllowedPerLab')]",
-      "dependsOn": [
-        "[variables('labResourceId')]"
-      ],
+      "dependsOn": [ "[variables('labResourceId')]" ],
       "properties": {
         "status": "Enabled",
         "factName": "LabVmCount",
@@ -161,91 +132,47 @@
       }
     },
 
-    // ═══════════════════════════════════════════════
-    // 5. Politique — Tailles de VMs autorisées
-    // ═══════════════════════════════════════════════
     {
       "type": "Microsoft.DevTestLab/labs/policySets/policies",
       "apiVersion": "2018-09-15",
       "name": "[concat(parameters('labName'), '/default/AllowedVmSizesInLab')]",
-      "dependsOn": [
-        "[variables('labResourceId')]"
-      ],
+      "dependsOn": [ "[variables('labResourceId')]" ],
       "properties": {
         "status": "Enabled",
         "factName": "LabVmSize",
-        "threshold": "[string(createArray('Standard_B2s','Standard_B4ms','Standard_D2s_v3','Standard_D4s_v3'))]",
+        "threshold": "[string(createArray('Standard_D2s_v3','Standard_D4s_v3','Standard_B4ms','Standard_B2s'))]",
         "evaluatorType": "AllowedValuesPolicy",
-        "description": "Tailles de VMs autorisées — équilibre coût/performance pour les TPs"
+        "description": "Tailles de VMs autorisées"
       }
     },
 
-    // ═══════════════════════════════════════════════
-    // 6. Référentiel d'artefacts OFPPT (GitHub)
-    // ═══════════════════════════════════════════════
-    {
-      "type": "Microsoft.DevTestLab/labs/artifactSources",
-      "apiVersion": "2018-09-15",
-      "name": "[concat(parameters('labName'), '/ofppt-artifacts')]",
-      "dependsOn": [
-        "[variables('labResourceId')]"
-      ],
-      "properties": {
-        "displayName": "OFPPT Lab Artifacts",
-        "uri": "[parameters('artifactRepoUri')]",
-        "sourceType": "GitHub",
-        "folderPath": "/azure/devtestlab/artifacts",
-        "branchRef": "master",
-        "securityToken": "[parameters('artifactRepoToken')]",
-        "status": "Enabled"
-      }
-    },
-
-    // ═══════════════════════════════════════════════
-    // 7. Formule — VM Cloud Computing
-    // ═══════════════════════════════════════════════
     {
       "type": "Microsoft.DevTestLab/labs/formulas",
       "apiVersion": "2018-09-15",
       "name": "[concat(parameters('labName'), '/OFPPT-Cloud-Computing')]",
-      "dependsOn": [
-        "[variables('labResourceId')]",
-        "[resourceId('Microsoft.DevTestLab/labs/artifactSources', parameters('labName'), 'ofppt-artifacts')]"
-      ],
+      "dependsOn": [ "[variables('labResourceId')]" ],
       "properties": {
-        "description": "VM filière Cloud Computing — Docker CE, Terraform 1.7, kubectl, minikube, Azure CLI, AWS CLI, Ansible",
+        "description": "VM filière Cloud Computing — Docker CE, Terraform 1.7, kubectl, minikube, Azure CLI, AWS CLI v2, Ansible",
         "labVirtualMachineCreationParameter": {
           "size": "[variables('vmSizeCloud')]",
           "userName": "[parameters('adminUsername')]",
           "sshKey": "[parameters('sshPublicKey')]",
           "isAuthenticationWithSshKey": true,
-          "labSubnetName": "Subnet",
+          "labSubnetName": "subnet-ofppt-dtl",
           "disallowPublicIpAddress": false,
           "storageType": "Premium",
           "osDiskSizeGiB": "[variables('osDiskSizeGiB')]",
           "galleryImageReference": "[variables('ubuntuImage')]",
-          "artifacts": [
-            {
-              "artifactId": "[concat(variables('labResourceId'), '/artifactSources/ofppt-artifacts/artifacts/cloud-tools')]",
-              "artifactTitle": "OFPPT Cloud Tools"
-            }
-          ],
-          "notes": "Cloud Computing — Docker CE, Terraform 1.7, kubectl, minikube, Azure CLI, AWS CLI v2, Ansible"
+          "notes": "Cloud Computing — Docker CE, Terraform 1.7, kubectl, minikube, Azure CLI, AWS CLI v2, Ansible, Helm"
         }
       }
     },
 
-    // ═══════════════════════════════════════════════
-    // 8. Formule — VM Réseau & Infrastructure
-    // ═══════════════════════════════════════════════
     {
       "type": "Microsoft.DevTestLab/labs/formulas",
       "apiVersion": "2018-09-15",
       "name": "[concat(parameters('labName'), '/OFPPT-Reseau-Infrastructure')]",
-      "dependsOn": [
-        "[variables('labResourceId')]",
-        "[resourceId('Microsoft.DevTestLab/labs/artifactSources', parameters('labName'), 'ofppt-artifacts')]"
-      ],
+      "dependsOn": [ "[variables('labResourceId')]" ],
       "properties": {
         "description": "VM filière Réseau — Wireshark, tcpdump, Nmap, FRRouting (OSPF/BGP/RIP), OpenVPN, WireGuard, Open vSwitch",
         "labVirtualMachineCreationParameter": {
@@ -253,51 +180,33 @@
           "userName": "[parameters('adminUsername')]",
           "sshKey": "[parameters('sshPublicKey')]",
           "isAuthenticationWithSshKey": true,
-          "labSubnetName": "Subnet",
+          "labSubnetName": "subnet-ofppt-dtl",
           "disallowPublicIpAddress": false,
           "storageType": "Premium",
           "osDiskSizeGiB": "[variables('osDiskSizeGiB')]",
           "galleryImageReference": "[variables('ubuntuImage')]",
-          "artifacts": [
-            {
-              "artifactId": "[concat(variables('labResourceId'), '/artifactSources/ofppt-artifacts/artifacts/reseau-tools')]",
-              "artifactTitle": "OFPPT Réseau Tools"
-            }
-          ],
           "notes": "Réseau — Wireshark, tcpdump, Nmap, iperf3, FRRouting, OpenVPN, WireGuard, Open vSwitch"
         }
       }
     },
 
-    // ═══════════════════════════════════════════════
-    // 9. Formule — VM Cybersécurité
-    // ═══════════════════════════════════════════════
     {
       "type": "Microsoft.DevTestLab/labs/formulas",
       "apiVersion": "2018-09-15",
       "name": "[concat(parameters('labName'), '/OFPPT-Cybersecurite')]",
-      "dependsOn": [
-        "[variables('labResourceId')]",
-        "[resourceId('Microsoft.DevTestLab/labs/artifactSources', parameters('labName'), 'ofppt-artifacts')]"
-      ],
+      "dependsOn": [ "[variables('labResourceId')]" ],
       "properties": {
-        "description": "VM filière Cybersécurité — Metasploit, Nmap, Burp Suite Community, sqlmap, Hydra, Volatility, DVWA",
+        "description": "VM filière Cybersécurité — Metasploit, Nmap/Masscan, sqlmap, Hydra, hashcat, Volatility 3, DVWA",
         "labVirtualMachineCreationParameter": {
           "size": "[variables('vmSizeCyber')]",
           "userName": "[parameters('adminUsername')]",
           "sshKey": "[parameters('sshPublicKey')]",
           "isAuthenticationWithSshKey": true,
-          "labSubnetName": "Subnet",
+          "labSubnetName": "subnet-ofppt-dtl",
           "disallowPublicIpAddress": false,
           "storageType": "Premium",
           "osDiskSizeGiB": "[variables('osDiskSizeGiB')]",
           "galleryImageReference": "[variables('ubuntuImage')]",
-          "artifacts": [
-            {
-              "artifactId": "[concat(variables('labResourceId'), '/artifactSources/ofppt-artifacts/artifacts/cyber-tools')]",
-              "artifactTitle": "OFPPT Cyber Tools"
-            }
-          ],
           "notes": "Cybersécurité — Metasploit, Nmap, Masscan, Burp Suite, sqlmap, Hydra, hashcat, Volatility, DVWA"
         }
       }
@@ -306,21 +215,8 @@
   ],
 
   "outputs": {
-    "labName": {
-      "type": "string",
-      "value": "[parameters('labName')]"
-    },
-    "labId": {
-      "type": "string",
-      "value": "[variables('labResourceId')]"
-    },
-    "labPortalUrl": {
-      "type": "string",
-      "value": "[concat('https://labs.azure.com')]"
-    },
-    "deployCommand": {
-      "type": "string",
-      "value": "[concat('az deployment group create --resource-group ', resourceGroup().name, ' --template-file arm_lab_template.json --parameters sshPublicKey=\"$(cat ~/.ssh/ofppt_azure.pub)\"')]"
-    }
+    "labName":     { "type": "string", "value": "[parameters('labName')]" },
+    "labId":       { "type": "string", "value": "[variables('labResourceId')]" },
+    "portalUrl":   { "type": "string", "value": "https://labs.azure.com" }
   }
 }
