@@ -1,5 +1,12 @@
 # CLAUDE.md — OFPPT-Lab Infrastructure
-> Mis à jour le 2026-03-15 (session 9) | Branche : `feature/azure-devtestlab-deployment`
+> Mis à jour le 2026-03-15 (session 10) | Branche : `feature/azure-devtestlab-deployment`
+
+## 0. Instructions Claude (TOUJOURS RESPECTER)
+
+- **Exécuter toutes les commandes directement** — ne jamais demander à l'utilisateur de lancer quoi que ce soit.
+- Agir de manière autonome du début à la fin de chaque tâche.
+
+---
 > Repo : https://github.com/mounirelgholabzouri/ofppt-lab-infra
 
 ---

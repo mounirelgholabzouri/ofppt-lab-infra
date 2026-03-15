@@ -19,7 +19,7 @@ err()  { echo -e "${RED}[ERREUR]${NC} $1"; exit 1; }
 MOODLE_ROOT="/var/www/html/moodle"
 EXPORT_NAME="moodle-migration-$(date +%Y%m%d-%H%M%S)"
 EXPORT_DIR="/tmp/$EXPORT_NAME"
-OUTPUT_ARCHIVE="/vagrant/moodle-migration.tar.gz"
+OUTPUT_ARCHIVE="/tmp/moodle-migration.tar.gz"
 
 echo ""
 echo -e "${BOLD}=== OFPPT Academy -- Export Moodle (Vagrant -> Azure) ===${NC}"
@@ -74,7 +74,6 @@ mysqldump \
     --single-transaction \
     --routines \
     --triggers \
-    --set-gtid-purged=OFF \
     "$DB_NAME" > "$EXPORT_DIR/moodle_db.sql"
 
 DB_SIZE=$(du -sh "$EXPORT_DIR/moodle_db.sql" | cut -f1)

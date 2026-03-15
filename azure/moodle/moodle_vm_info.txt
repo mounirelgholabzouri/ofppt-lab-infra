@@ -1,0 +1,9 @@
+VM_NAME=OFPPT-ACADEMY-LMS
+RESOURCE_GROUP=rg-ofppt-moodle-prod
+IP=40.115.121.107
+FQDN=ofppt-academy-lms.northeurope.cloudapp.azure.com
+ADMIN_USER=azureofppt
+ADMIN_PASS=Ofppt@lab2026!
+LOCATION=northeurope
+VM_SIZE=Standard_D2s_v3
+NSG=nsg-ofppt-academy-lms

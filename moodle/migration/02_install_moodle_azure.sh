@@ -51,14 +51,24 @@ mkdir -p "$WORK_DIR"
 tar -xzf "$ARCHIVE" -C "$WORK_DIR"
 
 # Trouver le sous-dossier extrait
-EXTRACTED=$(find "$WORK_DIR" -maxdepth 1 -type d | grep "moodle-migration" | head -1)
+EXTRACTED=$(find "$WORK_DIR" -maxdepth 1 -mindepth 1 -type d | head -1)
 [[ -n "$EXTRACTED" ]] || err "Sous-dossier moodle-migration introuvable dans l'archive"
 log "Contenu extrait : $EXTRACTED"
 
-# Charger les infos de migration
+# Charger les infos de migration (grep pour eviter les erreurs de parsing)
 INFO_FILE="$EXTRACTED/migration_info.env"
 [[ -f "$INFO_FILE" ]] || err "migration_info.env introuvable"
-source "$INFO_FILE"
+
+get_val() { grep -m1 "^$1=" "$INFO_FILE" | cut -d'=' -f2-; }
+
+MOODLE_VERSION=$(get_val MOODLE_VERSION)
+MOODLE_DATA=$(get_val MOODLE_DATA)
+DB_NAME=$(get_val DB_NAME)
+DB_USER=$(get_val DB_USER)
+DB_PASS=$(get_val DB_PASS)
+DB_PREFIX=$(get_val DB_PREFIX)
+MOODLE_WWWROOT_SOURCE=$(get_val MOODLE_WWWROOT_SOURCE)
+
 log "DB Name   : $DB_NAME"
 log "DB User   : $DB_USER"
 log "Moodle v  : $MOODLE_VERSION"

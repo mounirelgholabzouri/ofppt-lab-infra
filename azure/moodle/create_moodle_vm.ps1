@@ -14,7 +14,7 @@ $AZ = "C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd"
 # -- Parametres ---------------------------------------------------------------
 $SUBSCRIPTION  = "b64ddf59-d9cf-4c48-8174-27962dfc261c"
 $RG            = "rg-ofppt-moodle-prod"
-$LOCATION      = "francecentral"
+$LOCATION      = "northeurope"
 $VM_NAME       = "OFPPT-ACADEMY-LMS"
 $VM_SIZE       = "Standard_D2s_v3"
 $ADMIN_USER    = "azureofppt"
