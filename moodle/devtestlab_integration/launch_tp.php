@@ -275,19 +275,22 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 .btn-o { background: transparent; color: var(--text); border: 1.5px solid #d5d5d5; }
 .btn-o:hover { background: var(--gray-bg); }
 
-/* ── TERMINAL ── */
+/* ── TERMINAL (ouvert dans nouvel onglet) ── */
 .term-wrap { display: none; margin-top: 16px; }
-.term-card { background: #1e1e2e; border-radius: var(--r); overflow: hidden; box-shadow: 0 6px 24px rgba(0,0,0,.25); }
-.term-bar  { background: #2d2d44; padding: 9px 14px; display: flex; align-items: center; gap: 7px; }
-.dot { width: 11px; height: 11px; border-radius: 50%; }
-.dr{background:#ff5f57} .dy{background:#febc2e} .dg{background:#28c840}
-.term-title { margin-left: 8px; color: #cdd6f4; font-size: 12px; font-family: 'Courier New', monospace; }
-.term-iframe { width: 100%; height: 500px; border: none; background: #1e1e2e; display: block; }
-.term-foot { background: #252535; padding: 8px 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.term-foot a, .term-foot button { color: #7dcfff; font-size: 11.5px; font-family: monospace; background: none;
-  border: none; cursor: pointer; text-decoration: none; padding: 3px 8px; border-radius: 3px; transition: background .2s; }
-.term-foot a:hover, .term-foot button:hover { background: rgba(255,255,255,.08); }
-.term-foot .ti { color: #565f89; font-size: 10.5px; margin-left: auto; }
+.term-ready { background: #1e1e2e; border-radius: var(--r); overflow: hidden;
+              box-shadow: 0 6px 24px rgba(0,0,0,.25); padding: 24px 28px;
+              display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.term-ready-icon { font-size: 36px; flex-shrink: 0; }
+.term-ready-info h3 { color: #cdd6f4; font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.term-ready-info p  { color: #6c7086; font-size: 12.5px; }
+.term-ready-btns { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.btn-term { padding: 10px 22px; border-radius: 6px; font-size: 13px; font-weight: 700;
+            border: none; cursor: pointer; text-decoration: none;
+            display: inline-flex; align-items: center; gap: 8px; transition: all .2s; }
+.btn-term-open  { background: #28c840; color: #fff; }
+.btn-term-open:hover { background: #22a835; transform: translateY(-1px); box-shadow: 0 3px 12px rgba(40,200,64,.35); }
+.btn-term-retry { background: #3d3d5c; color: #cdd6f4; }
+.btn-term-retry:hover { background: #4d4d70; }
 
 /* ── TIMER ── */
 .timer { display: none; background: #fff; border-radius: var(--r); border: 1px solid #e0e0e0;
@@ -525,25 +528,26 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
   </div>
 </div>
 
-<!-- TERMINAL ttyd -->
+<!-- TERMINAL ttyd — ouvert dans un nouvel onglet -->
 <div class="term-wrap" id="term-wrap">
-  <div class="term-card">
-    <div class="term-bar">
-      <div class="dot dr"></div>
-      <div class="dot dy"></div>
-      <div class="dot dg"></div>
-      <span class="term-title">
-        <?= htmlspecialchars($moodleUsername) ?>@ofppt-lab &mdash; <?= htmlspecialchars($tpCode) ?> &mdash; ttyd :7681
-      </span>
+  <div class="term-ready">
+    <div class="term-ready-icon">&#128196;</div>
+    <div class="term-ready-info">
+      <h3>&#10003; Terminal ouvert dans un nouvel onglet</h3>
+      <p id="term-url-hint">Connexion SSH web : <span id="term-url-display" style="color:#7dcfff;font-family:monospace"></span></p>
     </div>
-    <iframe id="term-iframe" class="term-iframe" src="about:blank"
-            title="Terminal SSH OFPPT Lab" allow="clipboard-read; clipboard-write"></iframe>
-    <div class="term-foot">
-      <button onclick="reloadTerm()">&#8635; Reconnecter</button>
-      <a id="ttyd-link" href="#" target="_blank">&#8663; Nouvel onglet</a>
-      <a href="<?= htmlspecialchars($stopUrl) ?>"
-         onclick="return confirm('Terminer le TP ?')">&#9632; Terminer</a>
-      <span class="ti" id="ti">Session active</span>
+    <div class="term-ready-btns">
+      <a id="ttyd-link" href="#" target="_blank" class="btn-term btn-term-open">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <polyline points="16 3 21 3 21 8"/>
+          <line x1="10" y1="14" x2="21" y2="3"/>
+        </svg>
+        Ouvrir le terminal
+      </a>
+      <button onclick="reloadTerm()" class="btn-term btn-term-retry">
+        &#8635; Ré-ouvrir
+      </button>
     </div>
   </div>
 </div>
@@ -647,23 +651,23 @@ const TMAX  = <?= (int)VM_BOOT_TIMEOUT ?>;
 
 let poll = null, t0 = Date.now(), tStart = null, curIp = null;
 
-const $sb    = document.getElementById('sb');
-const $spin  = document.getElementById('spin');
-const $title = document.getElementById('sb-title');
-const $desc  = document.getElementById('sb-desc');
-const $pf    = document.getElementById('pf');
-const $pl    = document.getElementById('pl');
-const $viip  = document.getElementById('vi-ip');
-const $vist  = document.getElementById('vi-st');
-const $term  = document.getElementById('term-wrap');
-const $ifr   = document.getElementById('term-iframe');
-const $timer = document.getElementById('timer');
-const $tv    = document.getElementById('tv');
-const $tf    = document.getElementById('tf');
-const $sshbx = document.getElementById('ssh-box');
-const $sshhst= document.getElementById('ssh-host');
-const $tbadge= document.getElementById('ttyd-badge');
-const $tlink = document.getElementById('ttyd-link');
+const $sb      = document.getElementById('sb');
+const $spin    = document.getElementById('spin');
+const $title   = document.getElementById('sb-title');
+const $desc    = document.getElementById('sb-desc');
+const $pf      = document.getElementById('pf');
+const $pl      = document.getElementById('pl');
+const $viip    = document.getElementById('vi-ip');
+const $vist    = document.getElementById('vi-st');
+const $term    = document.getElementById('term-wrap');
+const $timer   = document.getElementById('timer');
+const $tv      = document.getElementById('tv');
+const $tf      = document.getElementById('tf');
+const $sshbx   = document.getElementById('ssh-box');
+const $sshhst  = document.getElementById('ssh-host');
+const $tbadge  = document.getElementById('ttyd-badge');
+const $tlink   = document.getElementById('ttyd-link');
+const $termUrl = document.getElementById('term-url-display');
 
 function step(n, lbl) {
     [2,3,4].forEach(i => {
@@ -685,7 +689,7 @@ function setReady(ip) {
     $sb.className  = 'sb ok';
     if ($spin) $spin.style.display = 'none';
     $title.textContent = '\u2705 Votre environnement est pret !';
-    $desc.innerHTML    = 'Terminal SSH ouvert sur <strong>' + ip + '</strong>';
+    $desc.innerHTML    = 'Terminal SSH disponible sur <strong>' + ip + '</strong>';
     $pf.style.width    = '100%';
     $pl.textContent    = '100% \u2014 Pret';
     ['s3','s4'].forEach(id => {
@@ -695,9 +699,11 @@ function setReady(ip) {
     $viip.textContent = ip;
     $vist.textContent = 'En cours d\u2019execution';
     if ($sshbx) { $sshhst.textContent = ip; $tbadge.href = url; $sshbx.style.display = 'block'; }
-    $ifr.src = url;
     if ($tlink) $tlink.href = url;
+    if ($termUrl) $termUrl.textContent = url;
     if ($term) $term.style.display = 'block';
+    // Ouvrir ttyd dans un nouvel onglet automatiquement
+    window.open(url, '_blank', 'noopener');
     tStart = Date.now();
     if ($timer) { $timer.style.display = 'flex'; }
     updateTimer();
@@ -725,8 +731,7 @@ function updateTimer() {
 
 function reloadTerm() {
     if (curIp) {
-        $ifr.src = 'about:blank';
-        setTimeout(() => { $ifr.src = 'http://' + curIp + ':' + PORT; }, 300);
+        window.open('http://' + curIp + ':' + PORT, '_blank', 'noopener');
     }
 }
 

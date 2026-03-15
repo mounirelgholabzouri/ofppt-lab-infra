@@ -1,5 +1,5 @@
 # CLAUDE.md — OFPPT-Lab Infrastructure
-> Mis à jour le 2026-03-15 (session 5) | Branche : `feature/azure-devtestlab-deployment`
+> Mis à jour le 2026-03-15 (session 6) | Branche : `feature/azure-devtestlab-deployment`
 > Repo : https://github.com/mounirelgholabzouri/ofppt-lab-infra
 
 ---
@@ -81,34 +81,21 @@ Les stagiaires lancent leurs VMs depuis la page du cours Moodle ; l'accès se fa
 - IP : `40.89.159.34`
 - Compute RG : `ofppt-lab-formation-vm-admin-cc101t-961693`
 - Port 22 (SSH) : **OUVERT** ✅
-- Port 7681 (ttyd) : NSG OK mais **ttyd PAS INSTALLÉ** ❌ → page bloquée étape 2
+- Port 7681 (ttyd) : **OUVERT** ✅ — ttyd 1.7.3 installé via `az vm run-command invoke` (session 6)
+
+### Comportement ttyd (session 6)
+- `launch_tp.php` : ttyd s'ouvre dans un **nouvel onglet** automatiquement (plus d'iframe)
+- Bouton "Ouvrir le terminal" + "Ré-ouvrir" disponibles sur la page Moodle
+- La page Moodle reste ouverte avec timer 4h et infos VM
 
 ---
 
 ## 4. Ce qui RESTE À FAIRE ⚠️
 
-### Priorité 0 — Débloquer le test Moodle end-to-end (IMMÉDIAT)
-- [ ] **Installer ttyd sur `vm-admin-cc101t`** via `az vm run-command invoke`
-  ```powershell
-  az vm run-command invoke `
-    --resource-group ofppt-lab-formation-vm-admin-cc101t-961693 `
-    --name vm-admin-cc101t --command-id RunShellScript `
-    --scripts "curl -fsSL https://github.com/tsl0922/ttyd/releases/download/1.7.3/ttyd.x86_64 -o /usr/local/bin/ttyd && chmod +x /usr/local/bin/ttyd && useradd -m -s /bin/bash azureofppt 2>/dev/null || true && echo 'azureofppt:Ofppt@lab2026!' | chpasswd && cat > /etc/systemd/system/ttyd.service << 'EOF'
-[Unit]
-Description=ttyd Web Terminal
-After=network.target
-[Service]
-ExecStart=/usr/local/bin/ttyd -p 7681 login
-Restart=always
-User=root
-[Install]
-WantedBy=multi-user.target
-EOF
-systemctl daemon-reload && systemctl enable ttyd && systemctl start ttyd"
-  ```
-- [ ] **Syncer code local** avec les fixes déployés sur la VM Vagrant :
-  - Fix HTTP 411 (empty POST body pour `startVm`/`stopVm`) — déployé VM, **pas encore dans le source local**
-  - Supprimer 2 lignes DEBUG (exposent `client_secret` en clair) — lignes 34 et 43 de `azure_dtl_api.php`
+### Priorité 0 — ✅ COMPLÉTÉ (session 6)
+- [x] **ttyd installé sur `vm-admin-cc101t`** via `az vm run-command invoke` — service actif, port 7681 LISTEN
+- [x] **Code local synced** — fix HTTP 411 + lignes DEBUG supprimées (déjà en place)
+- [x] **launch_tp.php** — ttyd ouvre dans un nouvel onglet (plus d'iframe)
 
 ### Priorité 1 — Artifact ttyd (pour futures VMs)
 - [ ] **Mettre à jour les artifacts** `cloud-tools/install.sh`, `reseau-tools/install.sh`, `cyber-tools/install.sh`
@@ -135,14 +122,13 @@ systemctl daemon-reload && systemctl enable ttyd && systemctl start ttyd"
 ## 5. Prochaine étape précise
 
 ```
-SESSION 6 — ETAPES :
-1. [BLOQUANT] Installer ttyd sur vm-admin-cc101t via az vm run-command
-2. Syncer local source : fix HTTP 411 + supprimer lignes DEBUG dans azure_dtl_api.php
-3. Valider launch_tp.php end-to-end sur Vagrant (step 1→2→3→4 + terminal ttyd)
-4. Mettre à jour les artifacts (install.sh) pour inclure ttyd + NSG auto
-5. Mettre à jour arm_lab_template.json (taille D2s_v3 + NSG dans template)
-6. Créer script unifié create_vm_with_nsg.ps1
-7. Déployer intégration Moodle sur serveur prod
+SESSION 7 — ETAPES :
+1. Valider launch_tp.php end-to-end sur Vagrant avec vm-admin-cc101t
+   → Vérifier step 1→2→3→4 : VM ready + nouvel onglet ttyd s'ouvre automatiquement
+2. Déployer intégration Moodle sur serveur prod
+   bash moodle/devtestlab_integration/install.sh
+   php moodle/devtestlab_integration/setup_moodle_activities.php
+3. (Optionnel) Tester create_vm_with_nsg.ps1 pour une nouvelle VM complète
 ```
 
 **Commandes de reprise rapides :**
