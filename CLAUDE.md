@@ -1,5 +1,5 @@
 # CLAUDE.md — OFPPT-Lab Infrastructure
-> Mis à jour le 2026-03-15 (session 8) | Branche : `feature/azure-devtestlab-deployment`
+> Mis à jour le 2026-03-15 (session 9) | Branche : `feature/azure-devtestlab-deployment`
 > Repo : https://github.com/mounirelgholabzouri/ofppt-lab-infra
 
 ---
@@ -133,13 +133,17 @@ SESSION 8 — COMPLETEE ✅
 1. Fix ConvertFrom-Json (IndexOf) dans create_vm_with_nsg.ps1 (leçon 11)
 2. CLAUDE.md mis à jour : Priorité 1 (artifacts) + Priorité 4 (create_vm_with_nsg.ps1) cochés
 
-SESSION 9 — ETAPES :
+SESSION 9 — COMPLETEE ✅
+1. Fix encoding PS1 (em-dash → ASCII) dans create_vm_with_nsg.ps1
+2. Fix formulaId → GET formule + injecter galleryImageReference (leçon 17)
+3. VM tp-0315-0659 creee avec formule OFPPT-Cloud-Computing — Succeeded
+   - NSG cree + attache NIC, port 22 + 7681 OUVERTS
+   - ttyd 1.7.3 installe + service systemd actif
+
+SESSION 10 — ETAPES :
 1. Déployer intégration Moodle sur serveur prod
    AZURE_CLIENT_SECRET='xxx' MOODLE_WWWROOT='https://moodle.ofppt-academy.ma' \
      sudo -E bash moodle/devtestlab_integration/deploy_prod.sh
-2. Tester create_vm_with_nsg.ps1 sur une vraie VM (avec formule OFPPT-Cloud-Computing)
-   powershell -ExecutionPolicy Bypass -File azure\devtestlab\create_vm_with_nsg.ps1 \
-     -Formula OFPPT-Cloud-Computing
 ```
 
 **Commandes de reprise rapides :**
@@ -183,6 +187,7 @@ vagrant ssh vm-cloud -- "sudo cp /tmp/ltp.php /var/www/html/moodle/local/devtest
 14. **RBAC DTL** : Le rôle "DevTest Labs User" NE comprend PAS `Microsoft.DevTestLab/labs/virtualMachines/write` → assigner **Contributor au niveau subscription** (les compute RGs sont auto-créés par DTL et ne peuvent pas être prédits).
 15. **`status.php` ttyd check** : `isTtydReachable()` vérifie via `fsockopen` que le port 7681 répond AVANT de retourner `ready:true` → si ttyd pas installé, la page reste bloquée à l'étape 2 même si la VM est Running.
 16. **Debug lines à ne jamais commiter** : Les lignes `dtl_log('[DEBUG] ... client_secret ...')` exposent la clé en clair dans les logs — toujours supprimer avant commit.
+17. **DTL `formulaId` inexistant dans l'API** : L'API DTL ne supporte pas `formulaId` dans le body de création VM → `MissingRequiredProperties`. Il faut GET la formule, extraire `formulaContent.properties.galleryImageReference` et l'injecter dans le body VM. Le `storageType` de la formule est aussi à récupérer.
 
 ---
 

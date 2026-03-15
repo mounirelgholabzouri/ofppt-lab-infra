@@ -6,7 +6,7 @@ param(
 )
 
 # ==============================================================================
-# create_vm_with_nsg.ps1 — Creation VM DTL + NSG + ports 22/7681 en une operation
+# create_vm_with_nsg.ps1 - Creation VM DTL + NSG + ports 22/7681 en une operation
 # Usage :
 #   .\create_vm_with_nsg.ps1                          # VM D2s_v3 sans formule
 #   .\create_vm_with_nsg.ps1 -Formula OFPPT-Cloud-Computing
@@ -25,14 +25,14 @@ $vmUser = "azureofppt"
 
 Write-Host ""
 Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host " OFPPT Lab — Creation VM + NSG" -ForegroundColor Cyan
+Write-Host " OFPPT Lab - Creation VM + NSG" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host " VM Name : $vmName" -ForegroundColor White
 Write-Host " Size    : $VmSize" -ForegroundColor White
 Write-Host " Formula : $(if ($Formula) { $Formula } else { 'aucune (image gallery directe)' })" -ForegroundColor White
 Write-Host ""
 
-# ── Etape 1 : Recuperer le VNet DTL ────────────────────────────────────────────
+# -- Etape 1 : Recuperer le VNet DTL -------------------------------------------
 Write-Host "[1/5] Recuperation VNet DTL..." -ForegroundColor Green
 $dtlVnetId = (& $az rest --method GET `
     --url "$BASE/virtualnetworks?api-version=2018-09-15" `
@@ -44,7 +44,7 @@ if (-not $dtlVnetId -or $dtlVnetId -match "ERROR") {
 }
 Write-Host "VNet DTL : $dtlVnetId" -ForegroundColor Gray
 
-# ── Etape 2 : Creer la VM ───────────────────────────────────────────────────────
+# -- Etape 2 : Creer la VM -----------------------------------------------------
 Write-Host "[2/5] Creation VM $vmName ($VmSize)..." -ForegroundColor Green
 
 $vmBody = @{
@@ -71,10 +71,24 @@ $vmBody = @{
     }
 }
 
-# Si formule specifiee, utiliser la formule au lieu de l'image gallery
+# Si formule specifiee, recuperer galleryImageReference + storageType depuis la formule
 if ($Formula) {
-    $vmBody.properties.Remove("galleryImageReference") | Out-Null
-    $vmBody.properties["formulaId"] = "/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.DevTestLab/labs/$LAB/formulas/$Formula"
+    Write-Host "Lecture formule $Formula..." -ForegroundColor Gray
+    $fRaw = & $az rest --method GET `
+        --url "$BASE/formulas/${Formula}?api-version=2018-09-15" `
+        -o json 2>&1
+    $fJson = ($fRaw -join ""); $fi = $fJson.IndexOf('{')
+    $fObj  = if ($fi -ge 0) { $fJson.Substring($fi) | ConvertFrom-Json -ErrorAction SilentlyContinue } else { $null }
+    $fGallery = $fObj.properties.formulaContent.properties.galleryImageReference
+    if ($fGallery) {
+        $vmBody.properties["galleryImageReference"] = $fGallery
+        if ($fObj.properties.formulaContent.properties.storageType) {
+            $vmBody.properties["storageType"] = $fObj.properties.formulaContent.properties.storageType
+        }
+        Write-Host "Image formule: $($fGallery.offer) / $($fGallery.sku)" -ForegroundColor Gray
+    } else {
+        Write-Host "ATTENTION: galleryImageReference non trouve dans formule $Formula - image gallery par defaut utilisee" -ForegroundColor Yellow
+    }
 }
 
 $vmFile = "$env:TEMP\ofppt_new_vm.json"
@@ -93,7 +107,7 @@ if (($createRes -join "") -match '"ERROR"') {
 }
 Write-Host "Creation VM lancee." -ForegroundColor Green
 
-# ── Etape 3 : Attendre Succeeded ───────────────────────────────────────────────
+# -- Etape 3 : Attendre Succeeded ----------------------------------------------
 Write-Host "[3/5] Attente provisioning VM (max 10 min)..." -ForegroundColor Green
 $maxTries = 20
 $vmProv = ""
@@ -120,7 +134,7 @@ if ($vmProv -ne "Succeeded") {
         -o json 2>&1 | ConvertFrom-Json -ErrorAction SilentlyContinue).value
     $cRG = ($allRgs | Where-Object { $_.name -like "*$vmName*" } | Select-Object -First 1).name
     if ($cRG) {
-        Write-Host "Ressources compute RG $cRG:" -ForegroundColor Yellow
+        Write-Host "Ressources compute RG ${cRG}:" -ForegroundColor Yellow
         & $az resource list --resource-group $cRG --output table 2>&1
     }
     exit 1
@@ -129,7 +143,7 @@ if ($vmProv -ne "Succeeded") {
 Write-Host ""
 Write-Host "VM Succeeded: $vmFqdn" -ForegroundColor Green
 
-# ── Etape 4 : Creer NSG + attacher a la NIC ─────────────────────────────────
+# -- Etape 4 : Creer NSG + attacher a la NIC -----------------------------------
 Write-Host "[4/5] Creation NSG et association NIC..." -ForegroundColor Green
 
 # Trouver le RG compute
@@ -139,7 +153,7 @@ $allRgs = (& $az rest --method GET `
 $computeRG = ($allRgs | Where-Object { $_.name -like "*$vmName*" } | Select-Object -First 1).name
 
 if (-not $computeRG) {
-    Write-Host "ATTENTION: RG compute non trouve pour $vmName — NSG non cree" -ForegroundColor Yellow
+    Write-Host "ATTENTION: RG compute non trouve pour $vmName - NSG non cree" -ForegroundColor Yellow
 } else {
     Write-Host "Compute RG: $computeRG" -ForegroundColor Gray
     $NSG_NAME = "nsg-$vmName"
@@ -222,14 +236,14 @@ if (-not $computeRG) {
     }
 }
 
-# ── Etape 5 : Verifier connectivite ────────────────────────────────────────────
+# -- Etape 5 : Verifier connectivite -------------------------------------------
 Write-Host "[5/5] Test connectivite..." -ForegroundColor Green
 Start-Sleep -Seconds 15
 
 $tcp22 = Test-NetConnection -ComputerName $vmFqdn -Port 22 -WarningAction SilentlyContinue
 $tcp7681 = Test-NetConnection -ComputerName $vmFqdn -Port 7681 -WarningAction SilentlyContinue
 
-# ── Rapport final ───────────────────────────────────────────────────────────────
+# -- Rapport final -------------------------------------------------------------
 Write-Host ""
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host " VM CREEE AVEC SUCCES !" -ForegroundColor Green
@@ -244,7 +258,7 @@ Write-Host " Port 7681: $($tcp7681.TcpTestSucceeded)" -ForegroundColor $(if ($tc
 Write-Host ""
 
 if (-not $tcp7681.TcpTestSucceeded) {
-    Write-Host "Note: Port 7681 non ouvert — ttyd sera disponible apres execution" -ForegroundColor Yellow
-    Write-Host "      de l'artifact cloud-tools (via formule DTL), ou manuellement:" -ForegroundColor Yellow
+    Write-Host "Note: Port 7681 non ouvert - ttyd sera disponible apres execution" -ForegroundColor Yellow
+    Write-Host "      de l artifact cloud-tools (via formule DTL), ou manuellement:" -ForegroundColor Yellow
     Write-Host "      powershell -File install_ttyd_v2.ps1" -ForegroundColor Gray
 }
