@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Azure/azure-devtestlab/master/schemas/2016-11-28/dtlArtifacts.json",
+  "title": "OFPPT Install ttyd",
+  "description": "Installe ttyd (terminal web SSH port 7681) + service systemd pour l'integration Moodle OFPPT Academy",
+  "iconUri": "https://portal.azure.com/favicon.ico",
+  "targetOsType": "Linux",
+  "parameters": {
+    "ttydPort": {
+      "type": "string",
+      "displayName": "Port ttyd",
+      "defaultValue": "7681",
+      "description": "Port d'ecoute ttyd (defaut: 7681)"
+    },
+    "ttydUser": {
+      "type": "string",
+      "displayName": "Utilisateur ttyd",
+      "defaultValue": "azureofppt",
+      "description": "Utilisateur systeme pour le service ttyd"
+    }
+  },
+  "runCommand": {
+    "commandToExecute": "[concat('bash install.sh ', parameters('ttydPort'), ' ', parameters('ttydUser'))]"
+  }
+}
