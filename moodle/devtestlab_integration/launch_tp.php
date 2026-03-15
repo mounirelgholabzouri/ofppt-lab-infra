@@ -81,12 +81,12 @@ try {
     dtl_log("Erreur lancement VM : $error", 'ERROR');
 }
 
-// Token HMAC polling
+// Token HMAC polling + cleanup (durée 5h : provisionnement ~15min + TP 4h + marge)
 $tokenPayload = base64_encode(json_encode([
     'vm'      => $vmName,
     'user'    => $moodleUsername,
     'tp'      => $tpCode,
-    'expires' => time() + 3600,
+    'expires' => time() + 18000,
 ]));
 $tokenSig  = hash_hmac('sha256', $tokenPayload, TP_SECRET_KEY);
 $pollToken = $tokenPayload . '.' . $tokenSig;
@@ -99,6 +99,7 @@ $filiereData = [
 ];
 $fil        = $filiereData[$tp['filiere']] ?? $filiereData['cloud'];
 $statusUrl  = MOODLE_WWWROOT . "/local/devtestlab/status.php";
+$cleanupUrl = MOODLE_WWWROOT . "/local/devtestlab/cleanup_tp.php";
 $stopUrl    = "?tp=" . urlencode($tpCode) . "&action=stop&course=" . (int)$courseId;
 $courseUrl  = $courseId ? MOODLE_WWWROOT . "/course/view.php?id=$courseId" : MOODLE_WWWROOT;
 $initAvatar = strtoupper(substr($moodleFullname ?: 'S', 0, 1));
@@ -519,10 +520,9 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
     </div>
 
     <div class="btns">
-      <a href="<?= htmlspecialchars($stopUrl) ?>" class="btn btn-d"
-         onclick="return confirm('Terminer et supprimer votre VM de TP ?')">
+      <button class="btn btn-d" onclick="terminateTP()">
         &#9632; Terminer le TP
-      </a>
+      </button>
       <a href="<?= htmlspecialchars($courseUrl) ?>" class="btn btn-o">&#8592; Retour au cours</a>
     </div>
   </div>
@@ -646,13 +646,44 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 <!-- SCRIPT POLLING -->
 <?php if (!$error): ?>
 <script>
-const VM    = <?= json_encode($vmName) ?>;
-const TOKEN = <?= json_encode($pollToken) ?>;
-const SURL  = <?= json_encode($statusUrl) ?>;
-const PORT  = <?= (int)TTYD_PORT ?>;
-const TMAX  = <?= (int)VM_BOOT_TIMEOUT ?>;
+const VM         = <?= json_encode($vmName) ?>;
+const TOKEN      = <?= json_encode($pollToken) ?>;
+const SURL       = <?= json_encode($statusUrl) ?>;
+const CURL       = <?= json_encode($cleanupUrl) ?>;
+const COURSE_URL = <?= json_encode($courseUrl) ?>;
+const PORT       = <?= (int)TTYD_PORT ?>;
+const TMAX       = <?= (int)VM_BOOT_TIMEOUT ?>;
 
 let poll = null, t0 = Date.now(), tStart = null, curIp = null;
+let cleanupSent = false;
+
+// ── Cleanup : supprime la VM DTL via sendBeacon (fonctionne même à la fermeture de l'onglet) ──
+function sendCleanupBeacon() {
+    if (cleanupSent || !curIp) return; // uniquement si la VM est active
+    cleanupSent = true;
+    const fd = new FormData();
+    fd.append('token', TOKEN);
+    fd.append('vm', VM);
+    try { navigator.sendBeacon(CURL, fd); } catch(e) { console.warn('[OFPPT-Lab] beacon:', e); }
+}
+
+// Bouton "Terminer le TP" — confirmation + cleanup + redirection
+function terminateTP() {
+    if (!confirm('Terminer le TP et supprimer votre VM ?\n\nToutes vos données non sauvegardées seront perdues.')) return;
+    sendCleanupBeacon();
+    // Fallback : si VM pas encore prête, appel direct action=stop côté serveur
+    if (!curIp) {
+        window.location.href = <?= json_encode($stopUrl) ?>;
+        return;
+    }
+    setTimeout(() => { window.location.href = COURSE_URL; }, 500);
+}
+
+// Cleanup automatique quand la page quitte (fermeture onglet, navigation, F5...)
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') sendCleanupBeacon();
+});
+window.addEventListener('pagehide', sendCleanupBeacon);
 
 const $sb      = document.getElementById('sb');
 const $spin    = document.getElementById('spin');
@@ -741,6 +772,13 @@ function updateTimer() {
     $tv.textContent = h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
     if ($tf) $tf.style.width = Math.max(0, (rem / (4*3600)) * 100) + '%';
     if (rem < 300) $tv.style.color = '#e53935';
+    // Timer expiré : cleanup automatique + redirection
+    if (rem === 0) {
+        sendCleanupBeacon();
+        if ($title) $title.textContent = '\u23F1\uFE0F Temps ecoule — VM supprimee';
+        if ($desc)  $desc.textContent  = 'Redirection vers le cours dans 3 secondes...';
+        setTimeout(() => { window.location.href = COURSE_URL; }, 3000);
+    }
 }
 
 function reloadTerm() {

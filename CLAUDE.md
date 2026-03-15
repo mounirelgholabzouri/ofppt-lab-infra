@@ -1,5 +1,5 @@
 # CLAUDE.md — OFPPT-Lab Infrastructure
-> Mis à jour le 2026-03-15 (session 11) | Branche : `feature/azure-devtestlab-deployment`
+> Mis à jour le 2026-03-15 (session 12) | Branche : `feature/azure-devtestlab-deployment`
 
 ## 0. Instructions Claude (TOUJOURS RESPECTER)
 
@@ -168,11 +168,20 @@ SESSION 11 — COMPLETEE ✅
    - status.php : ready:true + ttydReady:true validé ✅
 7. VM vm-admin-cc101t redémarrée (était deallocated), SSH + ttyd OK
 
-SESSION 12 — ETAPES :
+SESSION 12 — COMPLETEE ✅
+1. vm-admin-cc101t deallocated (PowerState: deallocated, PIP libéré)
+2. cleanup_tp.php créé — endpoint POST sécurisé (token HMAC) pour suppression VM DTL
+   - fastcgi_finish_request() : réponse immédiate, suppression en arrière-plan
+3. launch_tp.php mis à jour :
+   - Token HMAC étendu 1h → 5h (couvre provisionnement + TP 4h)
+   - sendCleanupBeacon() via navigator.sendBeacon() sur visibilitychange + pagehide
+   - Bouton "Terminer le TP" : confirmation + cleanup + redirection
+   - Timer 4h expiré : cleanup auto + redirection 3s
+
+SESSION 13 — ETAPES :
 1. (Optionnel) Configurer DNS moodle.ofppt-academy.ma -> 40.115.121.107
 2. (Optionnel) HTTPS avec Let's Encrypt : certbot --apache -d moodle.ofppt-academy.ma
-3. Test end-to-end complet avec un stagiaire réel (login, lancer TP, accéder ttyd)
-4. Nettoyage VM vm-admin-cc101t (deallocate pour économiser quota PIP)
+3. Test end-to-end complet avec un stagiaire réel (login, lancer TP, accéder ttyd, fermer → VM supprimée)
 ```
 
 **Commandes de reprise rapides :**
@@ -221,6 +230,7 @@ vagrant ssh vm-cloud -- "sudo cp /tmp/ltp.php /var/www/html/moodle/local/devtest
 19. **`cookiesecure=1` Moodle** : Si Moodle est en HTTP (pas HTTPS), les cookies session ne sont pas envoyés → login redirige indéfiniment. Fix : `UPDATE mdl_config SET value='0' WHERE name='cookiesecure'`.
 20. **SSH authorized_keys VM prod** : La VM Moodle OFPPT-ACADEMY-LMS n'avait que la clé `Administrateur@PC-PORTABLE`. Ajouter la clé `ofppt_azure.pub` via `az vm run-command invoke` pour accès SSH depuis Claude Code.
 21. **DTL vmExists vs Azure VM state** : La DTL API `vmExists()` retourne true même si la VM sous-jacente est deallocated (état Azure réel ≠ état DTL). Toujours vérifier `getVmStatus()` pour le power state réel. Le runbook `StopVmsByDuration` deallocate les VMs sans les supprimer du DTL.
+22. **sendBeacon + PHP background** : `navigator.sendBeacon()` envoie un POST même à la fermeture de l'onglet mais n'attend pas la réponse. Côté PHP, utiliser `ignore_user_abort(true)` + `fastcgi_finish_request()` pour répondre immédiatement puis continuer la suppression DTL en arrière-plan (la suppression prend 1-2 minutes).
 
 ---
 
@@ -271,6 +281,7 @@ moodle/devtestlab_integration/
 ├── azure_dtl_api.php              # Classe API Azure
 ├── launch_tp.php                  # Page lanceur TP
 ├── status.php                     # Endpoint AJAX
+├── cleanup_tp.php                 # Endpoint POST suppression VM (sendBeacon)
 ├── install.sh                     # Installation Moodle server
 ├── setup_moodle_activities.php    # CLI Moodle
 └── .env.local                     # Credentials SP (non commité)
