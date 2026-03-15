@@ -1,0 +1,14 @@
+﻿{
+    "commandId":  "RunShellScript",
+    "script":  [
+                   "mkdir -p /home/azureofppt/.ssh",
+                   "echo \u0027ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDEUceV6MgrT98qWHC+ovNjLkswjyANGOLDMhrfpJqh+QvwYtBAjxfMsXxqsRcX8UB4SrOVPYB3cF+W+pBFfQ8taqrdoFfLLrPFClA61fvdbxVLA9VLEhYIgDMSrPW85kFlcntPYHED4mn9qvg/HwBNMTGYQ/N5HjPfEG641c2Rzo9jfkATBf8leUNHrmX1nd1pLlLiYx/9bh93XcDIRGlqL/LgGSBEFJJ/CjxJDBG4CZVSeRJpu/eN5Hq5hp+RJLWH77fZBfyoOHJka0mzh/f1y96kSKvrPbog5xPGg+u+Ck9pcSCfxx5d8utUbmHzBGyDGRChkAFfjl0MCVr5sZCPuX0Hjewo6C2KyP3mxxaLfaKLTkPlNTm5COz26EPOvylBmUHuBxo7vdhVL+RDhU0CfS20Yp5A5ns7l+KoSyDXXJvGGIWSe7l5kn9e0VCsPQeqrJxeP7IZ+ol+NiwKjJ5syW/wuuZDYZOmBZW6x1QMlgCZPSzvZxGwtcYw59mUkF1gLaFRRlsOsSbgpW/xe77hR9vdLQSv7ltJPQj+YSbDkI3tjrmTUGknOT/Ujl0z7WEonKFbKt5SpLmznlXd43O87IYP84MVpplUtcuAiEZWtcnZzOuYIvOq4P4gX/ycoOd4OBc9x5FGu9vETIxLDRLE6UfAucwxkvpHRQMzDs484Q== ofppt-devtestlab\u0027 \u003e\u003e /home/azureofppt/.ssh/authorized_keys",
+                   "chmod 700 /home/azureofppt/.ssh",
+                   "chmod 600 /home/azureofppt/.ssh/authorized_keys",
+                   "chown -R azureofppt:azureofppt /home/azureofppt/.ssh",
+                   "echo \u0027SSH KEY ADDED\u0027",
+                   "echo \u0027=== ttyd status ===\u0027",
+                   "systemctl is-active ttyd \u0026\u0026 echo \u0027ttyd: ACTIF\u0027 || echo \u0027ttyd: INACTIF\u0027",
+                   "ss -tlnp | grep 7681 | head -3"
+               ]
+}

@@ -1,5 +1,5 @@
 # CLAUDE.md — OFPPT-Lab Infrastructure
-> Mis à jour le 2026-03-15 (session 14) | Branche principale : `main`
+> Mis à jour le 2026-03-15 (session 15) | Branche principale : `main`
 
 ## 0. Instructions Claude (TOUJOURS RESPECTER)
 
@@ -205,8 +205,27 @@ SESSION 14 — COMPLETEE ✅
    - Cache purgé
 5. URL Moodle prod : https://moodle.ofppt-academy.cloud/moodle ✅
 
-SESSION 15 — ETAPES OPTIONNELLES :
-1. (Optionnel) Optimiser le délai ttyd : pré-installer ttyd dans la formule DTL via artifact
+SESSION 15 — COMPLETEE ✅
+1. Artifact `ttyd-install` créé dans repo GitHub (`azure/devtestlab/artifacts/ttyd-install/`)
+   - `Artifactfile.json` : manifest DTL (params: ttydPort=7681, ttydUser=azureofppt)
+   - `install.sh` : installation ttyd (latest via GitHub API, fallback 1.7.3) + service systemd, idempotent
+2. Repo GitHub `ofppt-lab-infra` lié au lab DTL comme artifact source (`ofppt-lab-infra`)
+   - Token GitHub récupéré via gh CLI (gho_*)
+   - folderPath: `/azure/devtestlab/artifacts`
+3. 3 formules DTL mises à jour avec artifact ttyd-install :
+   - `OFPPT-Cloud-Computing` : 1 artifact (ttyd-install)
+   - `OFPPT-Reseau-Infrastructure` : 1 artifact (ttyd-install)
+   - `OFPPT-Cybersecurite` : 1 artifact (ttyd-install)
+4. Test VM `tp-s15-test` validé :
+   - Artifact appliqué avec succès (artifactsApplied: 1/1, deploymentStatus: Succeeded)
+   - ttyd 1.7.7 actif sur port 7681 immédiatement après provisioning
+   - Délai réduit : ~6 min total (vs ~11 min avant avec installTtydAsync)
+   - VM supprimée après test ✅
+5. Leçon 24 ajoutée (voir section 6)
+
+SESSION 16 — ETAPES OPTIONNELLES :
+1. (Optionnel) Désactiver `installTtydAsync()` dans `azure_dtl_api.php` maintenant que ttyd est pré-installé via artifact
+2. (Optionnel) Augmenter le quota vCPU France Central (actuellement 4 — limité Free Trial)
 ```
 
 **Commandes de reprise rapides :**
@@ -265,6 +284,7 @@ $az = 'C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd'
 21. **DTL vmExists vs Azure VM state** : La DTL API `vmExists()` retourne true même si la VM sous-jacente est deallocated (état Azure réel ≠ état DTL). Toujours vérifier `getVmStatus()` pour le power state réel. Le runbook `StopVmsByDuration` deallocate les VMs sans les supprimer du DTL.
 22. **sendBeacon + PHP background** : `navigator.sendBeacon()` envoie un POST même à la fermeture de l'onglet mais n'attend pas la réponse. Côté PHP, utiliser `ignore_user_abort(true)` + `fastcgi_finish_request()` pour répondre immédiatement puis continuer la suppression DTL en arrière-plan (la suppression prend 1-2 minutes).
 23. **ttyd absent sur nouvelles VMs** : Les formules DTL sont créées sans artifacts (leçon 5 : no artifacts pour éviter Failed). Conséquence : ttyd n'est pas installé sur les nouvelles VMs. Fix : `installTtydAsync()` dans `getVmStatus()` déclenche `az vm run-command` (fire-and-forget) via l'API Compute (`Microsoft.Compute/virtualMachines/{vm}/runCommand`). Le script bash vérifie d'abord si ttyd est actif (idempotent). `VM_BOOT_TIMEOUT` doit être ≥ 1200s pour couvrir VM (~8min) + run-command ttyd (~3min).
+24. **DTL Artifact Source GitHub** : Pour lier un repo GitHub (même public) comme artifact source DTL, le champ `securityToken` est obligatoire. Utiliser `gh auth token` pour récupérer le token OAuth de GitHub CLI. L'URI doit se terminer par `.git`. Le `folderPath` pointe vers le dossier parent des dossiers artifacts (chaque sous-dossier = 1 artifact avec `Artifactfile.json`). Une fois lié, les artifacts apparaissent dans `GET .../artifactsources/{name}/artifacts`. Quota vCPU France Central (Free Trial) = 4 cores — chaque D2s_v3 = 2 cores, max 2 VMs simultanées.
 
 ---
 

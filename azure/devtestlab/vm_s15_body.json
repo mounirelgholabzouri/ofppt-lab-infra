@@ -1,0 +1,35 @@
+﻿{
+    "properties":  {
+                       "allowClaim":  false,
+                       "userName":  "azureofppt",
+                       "size":  "Standard_D2s_v3",
+                       "password":  "Ofppt@lab2026!",
+                       "labSubnetName":  "subnet-ofppt-dtl",
+                       "labVirtualNetworkId":  "/subscriptions/b64ddf59-d9cf-4c48-8174-27962dfc261c/resourcegroups/rg-ofppt-devtestlab/providers/microsoft.devtestlab/labs/ofppt-lab-formation/virtualnetworks/vnet-ofppt-dtl",
+                       "artifacts":  [
+                                         {
+                                             "artifactId":  "/subscriptions/b64ddf59-d9cf-4c48-8174-27962dfc261c/resourceGroups/rg-ofppt-devtestlab/providers/Microsoft.DevTestLab/labs/ofppt-lab-formation/artifactsources/ofppt-lab-infra/artifacts/ttyd-install",
+                                             "parameters":  [
+                                                                {
+                                                                    "value":  "7681",
+                                                                    "name":  "ttydPort"
+                                                                },
+                                                                {
+                                                                    "value":  "azureofppt",
+                                                                    "name":  "ttydUser"
+                                                                }
+                                                            ]
+                                         }
+                                     ],
+                       "galleryImageReference":  {
+                                                     "offer":  "ubuntu-22_04-lts",
+                                                     "osType":  "Linux",
+                                                     "publisher":  "Canonical",
+                                                     "sku":  "server-gen1",
+                                                     "version":  "latest"
+                                                 },
+                       "disallowPublicIpAddress":  false,
+                       "storageType":  "Standard"
+                   },
+    "location":  "francecentral"
+}

@@ -1,0 +1,9 @@
+﻿{
+    "commandId":  "RunShellScript",
+    "script":  [
+                   "echo \u0027=== Test ttyd ===\u0027 ",
+                   "systemctl is-active ttyd 2\u003e/dev/null \u0026\u0026 echo \u0027ttyd: ACTIF\u0027 || echo \u0027ttyd: INACTIF\u0027",
+                   "ss -tlnp | grep 7681 \u0026\u0026 echo \u0027Port 7681: OUVERT\u0027 || echo \u0027Port 7681: FERME\u0027",
+                   "/usr/local/bin/ttyd --version 2\u003e/dev/null | head -1 || echo \u0027ttyd: non installe\u0027"
+               ]
+}
