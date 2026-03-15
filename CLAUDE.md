@@ -82,14 +82,11 @@ Les stagiaires lancent leurs VMs depuis la page du cours Moodle ; l'accès se fa
 - [x] **Token Azure obtenu** — fix `http_build_query` separator (commité 96bc020)
 - [x] **VM `vm-admin-cc101t` créée via PHP API** — Running, NSG attaché, port 22 ouvert ✅
 
-### État VM de test Moodle (session 7)
-- VM Name : `vm-admin-cc101t`
-- FQDN : `vm-admin-cc101t.francecentral.cloudapp.azure.com`
-- IP : `20.216.128.34` (recréée en session 7)
-- Compute RG : `ofppt-lab-formation-vm-admin-cc101t-017751`
-- Port 22 (SSH) : **OUVERT** ✅
-- Port 7681 (ttyd) : **OUVERT** ✅ — ttyd 1.7.3 installé + service systemd actif
-- `status.php` : `ready:true` + `ttydReady:true` **validé** ✅
+### État VM prod (session 13 — test intégral)
+- `vm-admin-cc101t` : **SUPPRIMÉE** (cleanup session 13)
+- `vm-stagi-cc101t` : **SUPPRIMÉE** (cleanup session 13 — VM de test end-to-end)
+- `tp-0315-0659` : **Stopped** (session 9, conservée)
+- Parcours complet validé session 13 : login → TP → VM créée → NSG → ttyd → terminal → cleanup ✅
 
 ### Comportement ttyd (session 6)
 - `launch_tp.php` : ttyd s'ouvre dans un **nouvel onglet** automatiquement (plus d'iframe)
@@ -119,12 +116,10 @@ Les stagiaires lancent leurs VMs depuis la page du cours Moodle ; l'accès se fa
   - Remplacer `Standard_B2s` par `Standard_D2s_v3` comme taille par défaut des formules
   - Ajouter création NSG avec rules SSH+ttyd dans le template
 
-### Priorité 3 — Déploiement Moodle prod
-- [ ] **Déployer intégration Moodle** sur le serveur :
-  ```bash
-  bash moodle/devtestlab_integration/install.sh
-  php moodle/devtestlab_integration/setup_moodle_activities.php
-  ```
+### Priorité 3 — Déploiement Moodle prod ✅ COMPLÉTÉ (session 10-11)
+- [x] **Intégration Moodle déployée** sur `OFPPT-ACADEMY-LMS` (40.115.121.107)
+  - 6 fichiers PHP déployés dans `/var/www/html/moodle/local/devtestlab/`
+  - 12 activités TP créées dans 8 cours Moodle (CC101, CC302, NET101, NET201, NET301, CYB101, CYB201, CYB301)
 
 ### Priorité 4 — Script création VM amélioré
 - [x] **Script `create_vm_with_nsg.ps1`** — VM + NSG + attachement NIC en une seule opération ✅
@@ -202,23 +197,30 @@ SESSION 14 — ETAPES OPTIONNELLES :
 
 **Commandes de reprise rapides :**
 ```powershell
-# Vérifier état Azure complet
+# Vérifier état Azure complet (DTL VMs + formules + automation)
 powershell -ExecutionPolicy Bypass -File azure\devtestlab\check_status.ps1
 
-# Tester SSH + ttyd sur VM existante
-powershell -ExecutionPolicy Bypass -File azure\devtestlab\check_pip_and_ssh.ps1
+# SSH vers serveur Moodle prod
+ssh -i C:\Users\Administrateur\.ssh\ofppt_azure azureofppt@40.115.121.107
 
-# Ouvrir page de test Moodle (après vagrant up vm-cloud)
-# http://localhost:8080/moodle/local/devtestlab/launch_tp.php?tp=CC101-TP1
+# Déployer fichiers PHP modifiés sur Moodle prod
+scp -i C:\Users\Administrateur\.ssh\ofppt_azure `
+  moodle\devtestlab_integration\azure_dtl_api.php `
+  azureofppt@40.115.121.107:/tmp/ && `
+ssh -i C:\Users\Administrateur\.ssh\ofppt_azure azureofppt@40.115.121.107 `
+  "sudo cp /tmp/azure_dtl_api.php /var/www/html/moodle/local/devtestlab/ && sudo chown www-data:www-data /var/www/html/moodle/local/devtestlab/azure_dtl_api.php"
 
-# Re-créer NSG si la VM a été recréée
-powershell -ExecutionPolicy Bypass -File azure\devtestlab\create_nsg_vm_admin.ps1
+# Tester le parcours stagiaire
+# http://40.115.121.107/moodle/login/index.php  (stagiaire.cloud1 / Ofppt@2026!)
+# http://40.115.121.107/moodle/course/view.php?id=2  (CC101)
 
-# Sync fichiers PHP sur Vagrant (après modifications locales)
-scp -P 2222 -i "$env:USERPROFILE\.vagrant.d\insecure_private_keys\vagrant.key.rsa" `
-  -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -o PubkeyAcceptedKeyTypes=+ssh-rsa `
-  moodle\devtestlab_integration\launch_tp.php vagrant@127.0.0.1:/tmp/ltp.php
-vagrant ssh vm-cloud -- "sudo cp /tmp/ltp.php /var/www/html/moodle/local/devtestlab/launch_tp.php && sudo chown www-data:www-data /var/www/html/moodle/local/devtestlab/launch_tp.php"
+# Logs DTL en temps réel
+ssh -i C:\Users\Administrateur\.ssh\ofppt_azure azureofppt@40.115.121.107 `
+  "sudo tail -f /var/log/ofppt-devtestlab.log"
+
+# Voir VMs DTL actives
+$az = 'C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd'
+& $az rest --method GET --url "https://management.azure.com/subscriptions/b64ddf59-d9cf-4c48-8174-27962dfc261c/resourceGroups/rg-ofppt-devtestlab/providers/Microsoft.DevTestLab/labs/ofppt-lab-formation/virtualmachines?api-version=2018-09-15" --query 'value[].{name:name,state:properties.lastKnownPowerState,status:properties.provisioningState}' -o table
 ```
 
 ---
@@ -289,9 +291,9 @@ azure/devtestlab/
 │   ├── formula-reseau.json
 │   └── formula-cyber.json
 └── artifacts/
-    ├── cloud-tools/install.sh     # À METTRE À JOUR avec ttyd
-    ├── reseau-tools/install.sh    # À METTRE À JOUR avec ttyd
-    └── cyber-tools/install.sh     # À METTRE À JOUR avec ttyd
+    ├── cloud-tools/install.sh     # ttyd inclus ✅ (non utilisé — installTtydAsync() préféré)
+    ├── reseau-tools/install.sh    # ttyd inclus ✅
+    └── cyber-tools/install.sh     # ttyd inclus ✅
 
 moodle/devtestlab_integration/
 ├── config.php                     # Config SP Azure (credentials réels)
