@@ -31,16 +31,16 @@ class AzureDTLApi {
             return $this->token;
         }
 
+        dtl_log('[DEBUG] getToken() AZURE_CLIENT_SECRET len=' . strlen(AZURE_CLIENT_SECRET) . ' val_start=' . substr(AZURE_CLIENT_SECRET, 0, 4), 'DEBUG');
         $url  = "https://login.microsoftonline.com/" . AZURE_TENANT_ID . "/oauth2/v2.0/token";
-        // '&' separator must be explicit: Moodle sets ini arg_separator.output='&amp;'
-        // which would corrupt the POST body and cause AADSTS7000216 (client_secret missing)
         $body = http_build_query([
             'grant_type'    => 'client_credentials',
             'client_id'     => AZURE_CLIENT_ID,
             'client_secret' => AZURE_CLIENT_SECRET,
             'scope'         => 'https://management.azure.com/.default',
-        ], '', '&');
+        ], '', '&');  // explicit '&' — Moodle sets arg_separator.output='&amp;'
 
+        dtl_log('[DEBUG] getToken body=' . urldecode($body), 'DEBUG');
         $response = $this->curl('POST', $url, $body, ['Content-Type: application/x-www-form-urlencoded']);
         if (empty($response['access_token'])) {
             throw new RuntimeException("Impossible d'obtenir le token Azure : " . json_encode($response));
@@ -52,7 +52,7 @@ class AzureDTLApi {
     }
 
     // ── Appel générique à l'API Azure REST ───────────────────────────────────
-    private function curl(string $method, string $url, mixed $body = null, array $extraHeaders = []): array {
+    private function curl(string $method, string $url, mixed $body = null, array $extraHeaders = [], int $timeout = 60): array {
         $ch = curl_init();
 
         // N'ajouter Content-Type: application/json que si aucun Content-Type dans extraHeaders
@@ -72,7 +72,7 @@ class AzureDTLApi {
             CURLOPT_CUSTOMREQUEST  => $method,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HTTPHEADER     => $headers,
-            CURLOPT_TIMEOUT        => 30,
+            CURLOPT_TIMEOUT        => $timeout,
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_FOLLOWLOCATION => true,
         ]);
@@ -173,7 +173,7 @@ class AzureDTLApi {
 
         dtl_log("Création VM '$vmName' pour '$username' (TP: $tpCode, taille: {$tp['vm_size']})");
         $url    = $this->labUrl("virtualmachines/$vmName");
-        $result = $this->curl('PUT', $url, $payload);
+        $result = $this->curl('PUT', $url, $payload, [], 120); // DTL creation can take up to 2min to respond
 
         if (!empty($result['error'])) {
             $errMsg = $result['error']['message'] ?? json_encode($result['error']);
