@@ -147,10 +147,20 @@ SESSION 9 — COMPLETEE ✅
    - NSG cree + attache NIC, port 22 + 7681 OUVERTS
    - ttyd 1.7.3 installe + service systemd actif
 
-SESSION 10 — ETAPES :
-1. Déployer intégration Moodle sur serveur prod
-   AZURE_CLIENT_SECRET='xxx' MOODLE_WWWROOT='https://moodle.ofppt-academy.ma' \
-     sudo -E bash moodle/devtestlab_integration/deploy_prod.sh
+SESSION 10 — COMPLETEE ✅
+1. Migration Moodle Vagrant -> Azure (VM OFPPT-ACADEMY-LMS, northeurope, D2s_v3)
+   - IP : 40.115.121.107 | FQDN : ofppt-academy-lms.northeurope.cloudapp.azure.com
+   - RG : rg-ofppt-moodle-prod | SSH : azureofppt@40.115.121.107
+   - Moodle 4.5.10 migre (DB moodledb 494 tables + moodledata)
+   - URL : http://40.115.121.107/moodle
+2. Integration DevTest Labs deployee (deploy_prod.sh) -- Token Azure OK
+
+SESSION 11 — ETAPES :
+1. Creer les cours Moodle (CC101, CC302, NET101, NET201, NET301, CYB101, CYB201, CYB301)
+   via l'interface admin : http://40.115.121.107/moodle/admin
+2. Tester launch_tp.php : http://40.115.121.107/moodle/local/devtestlab/launch_tp.php?tp=CC101-TP1
+3. (Optionnel) Configurer DNS moodle.ofppt-academy.ma -> 40.115.121.107
+4. (Optionnel) HTTPS avec Let's Encrypt : certbot --apache -d moodle.ofppt-academy.ma
 ```
 
 **Commandes de reprise rapides :**

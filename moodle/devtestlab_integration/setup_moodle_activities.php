@@ -29,40 +29,44 @@ require_once __DIR__ . '/config.php';
 // Format : 'shortname_cours' => [ [ 'section' => N, 'tp' => 'CODE-TP' ], ... ]
 $ACTIVITIES = [
     'CC101' => [
-        ['section' => 1, 'tp' => 'CC101-TP1', 'name' => '🚀 Lancer le TP1 — Docker'],
-        ['section' => 2, 'tp' => 'CC101-TP2', 'name' => '🚀 Lancer le TP2 — Docker Compose'],
+        ['section' => 1, 'tp' => 'CC101-TP1', 'name' => 'Lancer le TP1 - Docker'],
+        ['section' => 2, 'tp' => 'CC101-TP2', 'name' => 'Lancer le TP2 - Docker Compose'],
     ],
     'CC302' => [
-        ['section' => 1, 'tp' => 'CC302-TP1', 'name' => '🚀 Lancer le TP1 — Kubernetes Pods'],
-        ['section' => 2, 'tp' => 'CC302-TP2', 'name' => '🚀 Lancer le TP2 — Terraform IaC'],
+        ['section' => 1, 'tp' => 'CC302-TP1', 'name' => 'Lancer le TP1 - Kubernetes Pods'],
+        ['section' => 2, 'tp' => 'CC302-TP2', 'name' => 'Lancer le TP2 - Terraform IaC'],
     ],
     'NET101' => [
-        ['section' => 1, 'tp' => 'NET101-TP1', 'name' => '🚀 Lancer le TP1 — Wireshark'],
-        ['section' => 2, 'tp' => 'NET101-TP2', 'name' => '🚀 Lancer le TP2 — OSPF Routage'],
+        ['section' => 1, 'tp' => 'NET101-TP1', 'name' => 'Lancer le TP1 - Wireshark'],
+        ['section' => 2, 'tp' => 'NET101-TP2', 'name' => 'Lancer le TP2 - OSPF Routage'],
     ],
     'NET201' => [
-        ['section' => 1, 'tp' => 'NET201-TP1', 'name' => '🚀 Lancer le TP1 — OpenVPN'],
+        ['section' => 1, 'tp' => 'NET201-TP1', 'name' => 'Lancer le TP1 - OpenVPN'],
     ],
     'NET301' => [
-        ['section' => 1, 'tp' => 'NET301-TP1', 'name' => '🚀 Lancer le TP1 — WireGuard'],
+        ['section' => 1, 'tp' => 'NET301-TP1', 'name' => 'Lancer le TP1 - WireGuard'],
     ],
     'CYB101' => [
-        ['section' => 1, 'tp' => 'CYB101-TP1', 'name' => '🚀 Lancer le TP1 — Nmap Reconnaissance'],
-        ['section' => 2, 'tp' => 'CYB101-TP2', 'name' => '🚀 Lancer le TP2 — Metasploit'],
+        ['section' => 1, 'tp' => 'CYB101-TP1', 'name' => 'Lancer le TP1 - Nmap Reconnaissance'],
+        ['section' => 2, 'tp' => 'CYB101-TP2', 'name' => 'Lancer le TP2 - Metasploit'],
     ],
     'CYB201' => [
-        ['section' => 1, 'tp' => 'CYB201-TP1', 'name' => '🚀 Lancer le TP1 — Injection SQL DVWA'],
+        ['section' => 1, 'tp' => 'CYB201-TP1', 'name' => 'Lancer le TP1 - Injection SQL DVWA'],
     ],
     'CYB301' => [
-        ['section' => 1, 'tp' => 'CYB301-TP1', 'name' => '🚀 Lancer le TP1 — Forensique Volatility'],
+        ['section' => 1, 'tp' => 'CYB301-TP1', 'name' => 'Lancer le TP1 - Forensique Volatility'],
     ],
 ];
 
-$BASE_URL = MOODLE_WWWROOT . '/local/devtestlab/launch_tp.php';
+$BASE_URL = 'http://40.115.121.107/moodle/local/devtestlab/launch_tp.php';
 
 // ── Traitement ────────────────────────────────────────────────────────────────
-echo "\n=== OFPPT — Création des activités TP dans Moodle ===\n\n";
+echo "\n=== OFPPT — Creation des activites TP dans Moodle ===\n\n";
 $created = 0; $skipped = 0; $errors = 0;
+
+// Récupérer l'ID du module URL
+$moduleRecord = $DB->get_record('modules', ['name' => 'url'], '*', MUST_EXIST);
+$moduleId = $moduleRecord->id;
 
 foreach ($ACTIVITIES as $courseShortname => $tps) {
     // Récupérer le cours Moodle par shortname
@@ -75,9 +79,9 @@ foreach ($ACTIVITIES as $courseShortname => $tps) {
     echo "  Cours : $courseShortname (ID: {$course->id}) — {$course->fullname}\n";
 
     foreach ($tps as $tp) {
-        $tpCode    = $tp['tp'];
-        $sectionN  = $tp['section'];
-        $actName   = $tp['name'];
+        $tpCode   = $tp['tp'];
+        $sectionN = $tp['section'];
+        $actName  = $tp['name'];
         $launchUrl = $BASE_URL . '?tp=' . urlencode($tpCode) . '&course=' . $course->id;
 
         // Vérifier si l'activité existe déjà
@@ -89,41 +93,73 @@ foreach ($ACTIVITIES as $courseShortname => $tps) {
         );
 
         if ($existing) {
-            echo "    [SKIP] Activité '$actName' existe déjà (cm: {$existing->id})\n";
+            echo "    [SKIP] Activite '$actName' existe deja (cm: {$existing->id})\n";
             $skipped++;
             continue;
         }
 
-        // Récupérer ou créer la section
-        $section = $DB->get_record('course_sections', [
-            'course'  => $course->id,
-            'section' => $sectionN,
-        ]);
-        if (!$section) {
-            $section = course_create_section($course->id, $sectionN);
-        }
-
-        // Créer le module URL
         try {
-            $moduleinfo              = new stdClass();
-            $moduleinfo->course      = $course->id;
-            $moduleinfo->section     = $sectionN;
-            $moduleinfo->modulename  = 'url';
-            $moduleinfo->name        = $actName;
-            $moduleinfo->externalurl = $launchUrl;
-            $moduleinfo->display     = RESOURCELIB_DISPLAY_NEW; // Ouvrir dans un nouvel onglet
-            $moduleinfo->visible     = 1;
-            $moduleinfo->intro       = "<p>Cliquez pour démarrer votre VM de TP <strong>$tpCode</strong> sur Azure DevTest Labs.</p>"
-                                     . "<p><em>⏱️ La VM s'arrêtera automatiquement après 4 heures.</em></p>";
-            $moduleinfo->introformat = FORMAT_HTML;
-            $moduleinfo->showdescription = 1;
+            // 1. Récupérer ou créer la section
+            $section = $DB->get_record('course_sections', [
+                'course'  => $course->id,
+                'section' => $sectionN,
+            ]);
+            if (!$section) {
+                $newSection = new stdClass();
+                $newSection->course  = $course->id;
+                $newSection->section = $sectionN;
+                $newSection->name    = '';
+                $newSection->summary = '';
+                $newSection->summaryformat = FORMAT_HTML;
+                $newSection->sequence = '';
+                $newSection->visible  = 1;
+                $newSection->timemodified = time();
+                $sectionId = $DB->insert_record('course_sections', $newSection);
+                $section = $DB->get_record('course_sections', ['id' => $sectionId]);
+            }
 
-            // Paramètres optionnels pour la popup
-            $moduleinfo->popupwidth  = 1280;
-            $moduleinfo->popupheight = 900;
+            // 2. Insérer l'enregistrement URL
+            $urlRecord = new stdClass();
+            $urlRecord->course       = $course->id;
+            $urlRecord->name         = $actName;
+            $urlRecord->intro        = '<p>Cliquez pour demarrer votre VM de TP <strong>' . $tpCode . '</strong> sur Azure DevTest Labs.</p>'
+                                     . '<p><em>La VM s\'arretera automatiquement apres 4 heures.</em></p>';
+            $urlRecord->introformat  = FORMAT_HTML;
+            $urlRecord->externalurl  = $launchUrl;
+            $urlRecord->display      = 0; // RESOURCELIB_DISPLAY_AUTO (ouvre dans nouvelle page)
+            $urlRecord->displayoptions = serialize(['printintro' => 1]);
+            $urlRecord->parameters   = '';
+            $urlRecord->timemodified = time();
+            $urlId = $DB->insert_record('url', $urlRecord);
 
-            $result = add_moduleinfo($moduleinfo, $course);
-            echo "    [OK] Activité '$actName' créée (cm: {$result->coursemodule}, section: $sectionN)\n";
+            // 3. Créer le course_module
+            $cm = new stdClass();
+            $cm->course    = $course->id;
+            $cm->module    = $moduleId;
+            $cm->instance  = $urlId;
+            $cm->section   = $section->id;
+            $cm->added     = time();
+            $cm->visible   = 1;
+            $cm->visibleoncoursepage = 1;
+            $cm->visibleold = 1;
+            $cm->showdescription = 1;
+            $cm->groupmode = 0;
+            $cm->groupingid = 0;
+            $cm->completion = 0;
+            $cm->completionview = 0;
+            $cm->completionexpected = 0;
+            $cm->completionpassgrade = 0;
+            $cm->deletioninprogress = 0;
+            $cmId = $DB->insert_record('course_modules', $cm);
+
+            // 4. Ajouter le cm à la séquence de la section
+            $sequence = $section->sequence ? $section->sequence . ',' . $cmId : (string)$cmId;
+            $DB->set_field('course_sections', 'sequence', $sequence, ['id' => $section->id]);
+
+            // 5. Invalider le cache du cours
+            rebuild_course_cache($course->id, true);
+
+            echo "    [OK] Activite '$actName' creee (cm: $cmId, section: $sectionN)\n";
             $created++;
         } catch (Exception $e) {
             echo "    [ERREUR] '$actName' : " . $e->getMessage() . "\n";
@@ -134,11 +170,11 @@ foreach ($ACTIVITIES as $courseShortname => $tps) {
 }
 
 // ── Résumé ────────────────────────────────────────────────────────────────────
-echo "════════════════════════════════════════\n";
-echo "  Activités créées  : $created\n";
-echo "  Ignorées (exist.) : $skipped\n";
+echo "========================================\n";
+echo "  Activites creees  : $created\n";
+echo "  Ignorees (exist.) : $skipped\n";
 echo "  Erreurs           : $errors\n";
-echo "════════════════════════════════════════\n";
-echo "\n  ✅ Les stagiaires voient maintenant le bouton '🚀 Lancer le TP'\n";
+echo "========================================\n";
+echo "\n  Les stagiaires voient maintenant le bouton 'Lancer le TP'\n";
 echo "     dans chaque section de TP de leurs cours Moodle.\n\n";
-echo "  URL modèle : $BASE_URL?tp=CC101-TP1&course=<id>\n\n";
+echo "  URL modele : $BASE_URL?tp=CC101-TP1&course=<id>\n\n";
