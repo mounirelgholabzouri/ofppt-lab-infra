@@ -1,5 +1,5 @@
 # CLAUDE.md — OFPPT-Lab Infrastructure
-> Mis à jour le 2026-03-15 (session 13) | Branche : `feature/azure-devtestlab-deployment`
+> Mis à jour le 2026-03-15 (session 13) | Branche principale : `main`
 
 ## 0. Instructions Claude (TOUJOURS RESPECTER)
 
