@@ -1,5 +1,5 @@
 # CLAUDE.md — OFPPT-Lab Infrastructure
-> Mis à jour le 2026-03-14 (session 3) | Branche : `feature/azure-devtestlab-deployment`
+> Mis à jour le 2026-03-15 (session 5) | Branche : `feature/azure-devtestlab-deployment`
 > Repo : https://github.com/mounirelgholabzouri/ofppt-lab-infra
 
 ---
@@ -62,18 +62,53 @@ Les stagiaires lancent leurs VMs depuis la page du cours Moodle ; l'accès se fa
   - **Port 7681 (ttyd) : OUVERT** ✅ — ttyd 1.7.3 installé, service systemd actif
   - URL ttyd: `http://tp-d2-0314-1401.francecentral.cloudapp.azure.com:7681`
 
-### Intégration Moodle (fichiers créés, non déployés)
+### Intégration Moodle — Déployée sur Vagrant (sessions 4+5) ✅
 - [x] Service Principal `sp-ofppt-moodle-dtl` créé + rôles assignés
-- [x] `config.php` — credentials SP réels intégrés
-- [x] `azure_dtl_api.php` — classe API Azure (OAuth2 + VM lifecycle)
-- [x] `launch_tp.php` — page lanceur TP (iframe ttyd + timer 4h)
-- [x] `status.php` — endpoint AJAX polling VM status
+- [x] **Contributor subscription-level** assigné au SP (nécessaire pour les compute RGs DTL auto-créés)
+- [x] `config.php` — credentials SP réels intégrés + `SetEnv` Apache configuré
+- [x] `azure_dtl_api.php` — classe API Azure (OAuth2 + VM lifecycle) — **déployée et testée sur Vagrant**
+- [x] `launch_tp.php` — page lanceur TP (iframe ttyd + timer 4h + design OFPPT Academy)
+- [x] `status.php` — endpoint AJAX polling VM status (vérifie `ready && ttydReady`)
 - [x] `install.sh` — script installation sur serveur Moodle
 - [x] `setup_moodle_activities.php` — création activités Moodle en CLI
+- [x] **Moodle login** fonctionnel — reset password via `update_internal_user_password()`
+- [x] **Token Azure obtenu** — fix `http_build_query` separator (commité 96bc020)
+- [x] **VM `vm-admin-cc101t` créée via PHP API** — Running, NSG attaché, port 22 ouvert ✅
+
+### État VM de test Moodle
+- VM Name : `vm-admin-cc101t`
+- FQDN : `vm-admin-cc101t.francecentral.cloudapp.azure.com`
+- IP : `40.89.159.34`
+- Compute RG : `ofppt-lab-formation-vm-admin-cc101t-961693`
+- Port 22 (SSH) : **OUVERT** ✅
+- Port 7681 (ttyd) : NSG OK mais **ttyd PAS INSTALLÉ** ❌ → page bloquée étape 2
 
 ---
 
 ## 4. Ce qui RESTE À FAIRE ⚠️
+
+### Priorité 0 — Débloquer le test Moodle end-to-end (IMMÉDIAT)
+- [ ] **Installer ttyd sur `vm-admin-cc101t`** via `az vm run-command invoke`
+  ```powershell
+  az vm run-command invoke `
+    --resource-group ofppt-lab-formation-vm-admin-cc101t-961693 `
+    --name vm-admin-cc101t --command-id RunShellScript `
+    --scripts "curl -fsSL https://github.com/tsl0922/ttyd/releases/download/1.7.3/ttyd.x86_64 -o /usr/local/bin/ttyd && chmod +x /usr/local/bin/ttyd && useradd -m -s /bin/bash azureofppt 2>/dev/null || true && echo 'azureofppt:Ofppt@lab2026!' | chpasswd && cat > /etc/systemd/system/ttyd.service << 'EOF'
+[Unit]
+Description=ttyd Web Terminal
+After=network.target
+[Service]
+ExecStart=/usr/local/bin/ttyd -p 7681 login
+Restart=always
+User=root
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload && systemctl enable ttyd && systemctl start ttyd"
+  ```
+- [ ] **Syncer code local** avec les fixes déployés sur la VM Vagrant :
+  - Fix HTTP 411 (empty POST body pour `startVm`/`stopVm`) — déployé VM, **pas encore dans le source local**
+  - Supprimer 2 lignes DEBUG (exposent `client_secret` en clair) — lignes 34 et 43 de `azure_dtl_api.php`
 
 ### Priorité 1 — Artifact ttyd (pour futures VMs)
 - [ ] **Mettre à jour les artifacts** `cloud-tools/install.sh`, `reseau-tools/install.sh`, `cyber-tools/install.sh`
@@ -85,7 +120,7 @@ Les stagiaires lancent leurs VMs depuis la page du cours Moodle ; l'accès se fa
   - Remplacer `Standard_B2s` par `Standard_D2s_v3` comme taille par défaut des formules
   - Ajouter création NSG avec rules SSH+ttyd dans le template
 
-### Priorité 3 — Déploiement Moodle
+### Priorité 3 — Déploiement Moodle prod
 - [ ] **Déployer intégration Moodle** sur le serveur :
   ```bash
   bash moodle/devtestlab_integration/install.sh
@@ -100,12 +135,14 @@ Les stagiaires lancent leurs VMs depuis la page du cours Moodle ; l'accès se fa
 ## 5. Prochaine étape précise
 
 ```
-ETAPE SUIVANTE :
-1. Mettre à jour les artifacts (install.sh) pour inclure ttyd + NSG auto
-2. Mettre à jour arm_lab_template.json (taille D2s_v3 + NSG dans template)
-3. Créer script unifié create_vm_with_nsg.ps1
-4. Git commit + push
-5. Déployer intégration Moodle sur serveur
+SESSION 6 — ETAPES :
+1. [BLOQUANT] Installer ttyd sur vm-admin-cc101t via az vm run-command
+2. Syncer local source : fix HTTP 411 + supprimer lignes DEBUG dans azure_dtl_api.php
+3. Valider launch_tp.php end-to-end sur Vagrant (step 1→2→3→4 + terminal ttyd)
+4. Mettre à jour les artifacts (install.sh) pour inclure ttyd + NSG auto
+5. Mettre à jour arm_lab_template.json (taille D2s_v3 + NSG dans template)
+6. Créer script unifié create_vm_with_nsg.ps1
+7. Déployer intégration Moodle sur serveur prod
 ```
 
 **Commandes de reprise rapides :**
@@ -113,11 +150,11 @@ ETAPE SUIVANTE :
 # Vérifier état Azure complet
 powershell -ExecutionPolicy Bypass -File azure\devtestlab\check_status.ps1
 
-# Créer une nouvelle VM (D2s_v3) + NSG
-powershell -ExecutionPolicy Bypass -File azure\devtestlab\create_vm_with_nsg.ps1
-
 # Tester SSH + ttyd sur VM existante
 powershell -ExecutionPolicy Bypass -File azure\devtestlab\check_pip_and_ssh.ps1
+
+# Ouvrir page de test Moodle (après vagrant up vm-cloud)
+# http://localhost:8080/moodle/local/devtestlab/launch_tp.php?tp=CC101-TP1
 ```
 
 ---
@@ -135,6 +172,11 @@ powershell -ExecutionPolicy Bypass -File azure\devtestlab\check_pip_and_ssh.ps1
 9. **NSG obligatoire** : Les VMs DTL n'ont pas de NSG par défaut → ports 22 et 7681 bloqués → créer NSG + attacher à la NIC avec `az network nic update --network-security-group`.
 10. **ttyd** : Installer via `curl` depuis GitHub releases (v1.7.3) + service systemd, user=azureofppt.
 11. **`ConvertFrom-Json`** : Échoue sur output mixte WARNING+JSON → extraire JSON par `.IndexOf('{')`.
+12. **Moodle `arg_separator.output`** : `lib/setup.php` ligne 818 fait `ini_set('arg_separator.output', '&amp;')` — casse `http_build_query()` qui produit `&amp;` au lieu de `&` → Azure reçoit un seul paramètre malformé → AADSTS7000216. Fix : `http_build_query([...], '', '&')`.
+13. **HTTP 411 Length Required** : Azure REST API exige `Content-Length: 0` sur les POST sans body (`/start`, `/stop`) → `curl_setopt($ch, CURLOPT_POSTFIELDS, '')` pour les POST avec `$body === null`.
+14. **RBAC DTL** : Le rôle "DevTest Labs User" NE comprend PAS `Microsoft.DevTestLab/labs/virtualMachines/write` → assigner **Contributor au niveau subscription** (les compute RGs sont auto-créés par DTL et ne peuvent pas être prédits).
+15. **`status.php` ttyd check** : `isTtydReachable()` vérifie via `fsockopen` que le port 7681 répond AVANT de retourner `ready:true` → si ttyd pas installé, la page reste bloquée à l'étape 2 même si la VM est Running.
+16. **Debug lines à ne jamais commiter** : Les lignes `dtl_log('[DEBUG] ... client_secret ...')` exposent la clé en clair dans les logs — toujours supprimer avant commit.
 
 ---
 

@@ -31,7 +31,6 @@ class AzureDTLApi {
             return $this->token;
         }
 
-        dtl_log('[DEBUG] getToken() AZURE_CLIENT_SECRET len=' . strlen(AZURE_CLIENT_SECRET) . ' val_start=' . substr(AZURE_CLIENT_SECRET, 0, 4), 'DEBUG');
         $url  = "https://login.microsoftonline.com/" . AZURE_TENANT_ID . "/oauth2/v2.0/token";
         $body = http_build_query([
             'grant_type'    => 'client_credentials',
@@ -39,8 +38,6 @@ class AzureDTLApi {
             'client_secret' => AZURE_CLIENT_SECRET,
             'scope'         => 'https://management.azure.com/.default',
         ], '', '&');  // explicit '&' — Moodle sets arg_separator.output='&amp;'
-
-        dtl_log('[DEBUG] getToken body=' . urldecode($body), 'DEBUG');
         $response = $this->curl('POST', $url, $body, ['Content-Type: application/x-www-form-urlencoded']);
         if (empty($response['access_token'])) {
             throw new RuntimeException("Impossible d'obtenir le token Azure : " . json_encode($response));
@@ -79,6 +76,9 @@ class AzureDTLApi {
 
         if ($body !== null) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, is_array($body) ? json_encode($body) : $body);
+        } elseif (strtoupper($method) === 'POST') {
+            // Azure requires Content-Length: 0 for empty POST bodies (avoids HTTP 411)
+            curl_setopt($ch, CURLOPT_POSTFIELDS, '');
         }
 
         $result   = curl_exec($ch);
