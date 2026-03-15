@@ -203,18 +203,22 @@ class AzureDTLApi {
             $publicIp = $this->getVmPublicIp($computeId);
         }
 
-        // Dès que la VM est Running+Succeeded, s'assurer que NSG et ttyd sont en place
+        // Dès que la VM est Running+Succeeded, s'assurer que le NSG est en place
+        // Note session 15 : ttyd est maintenant pré-installé via l'artifact DTL 'ttyd-install'
+        // => installTtydAsync() est désactivé (redondant). Conservé en méthode fallback.
         if ($powerState === 'Running' && $provState === 'Succeeded' && !empty($publicIp)) {
             try {
                 $this->ensureNsg($vmName);
             } catch (Exception $e) {
                 dtl_log("ensureNsg '$vmName' : " . $e->getMessage(), 'WARN');
             }
-            try {
-                $this->installTtydAsync($vmName);
-            } catch (Exception $e) {
-                dtl_log("installTtydAsync '$vmName' : " . $e->getMessage(), 'WARN');
-            }
+            // installTtydAsync désactivé — ttyd pré-installé par artifact DTL (session 15)
+            // En cas de régression, décommenter :
+            // try {
+            //     $this->installTtydAsync($vmName);
+            // } catch (Exception $e) {
+            //     dtl_log("installTtydAsync '$vmName' : " . $e->getMessage(), 'WARN');
+            // }
         }
 
         return [

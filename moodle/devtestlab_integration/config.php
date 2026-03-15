@@ -52,7 +52,7 @@ define('TP_SECRET_KEY', getenv('TP_SECRET_KEY') ?: 'ofppt-tp-secret-key-2024-cha
 define('VM_MAX_LIFETIME_SECONDS', 4 * 3600); // 4 heures
 
 // Délai max d'attente du démarrage de VM (secondes)
-define('VM_BOOT_TIMEOUT', 1200); // 20 minutes (VM ~8min + ttyd run-command ~3min)
+define('VM_BOOT_TIMEOUT', 700);  // ~12 min (VM+artifact ttyd ~6min, marge 2x — session 15)
 
 // ── Logging ───────────────────────────────────────────────────────────────────
 define('LOG_FILE',  '/var/log/ofppt-devtestlab.log');
